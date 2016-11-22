@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">Le2eTruckStop</string>
+    <string name="title_activity_main">Le2e Truck Stops</string>
+    <string name="menu_item_search_title">Search</string>
+    <string name="menu_item_satellite_toggle_title">Toggle Satellite</string>
+</resources>
