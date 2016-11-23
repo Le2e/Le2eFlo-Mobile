@@ -30,11 +30,13 @@ import com.google.android.gms.maps.MapFragment;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.le2e.le2etruckstop.R;
 import com.le2e.le2etruckstop.config.BaseApplication;
 import com.le2e.le2etruckstop.data.manager.DataManager;
+import com.le2e.le2etruckstop.data.remote.response.TruckStop;
 import com.le2e.le2etruckstop.ui.base.mvp.MvpBaseActivity;
 import com.le2e.le2etruckstop.ui.common.TruckStopPopupAdapter;
 
@@ -45,9 +47,10 @@ import javax.inject.Inject;
 import timber.log.Timber;
 
 public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePresenter> implements OnMapReadyCallback,
-        GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, LocationListener, MapsHomeView {
+        GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, LocationListener, MapsHomeView, GoogleMap.OnCameraIdleListener, GoogleMap.OnCameraMoveListener, GoogleMap.OnMarkerClickListener {
 
-    @Inject DataManager dataManager;
+    @Inject
+    DataManager dataManager;
 
     private GoogleMap mMap;
     private GoogleApiClient googleApiClient;
@@ -56,12 +59,15 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     private TruckStopPopupAdapter popupAdapter;
 
     private Marker currentLocMarker;
+    private Marker lastOpenMarker;
     private LatLng currentLoc;
 
     private float zoomLevel = 7.0f;
 
+    private boolean isMapReady = false;
     private boolean isSatellite = false;
-    private boolean isTrackingMode = false;
+    private boolean isTrackingEnabled = false;
+    private boolean isTrackingSuspended = false;
 
     private void setupFabs() {
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
@@ -79,12 +85,15 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
             public void onClick(View v) {
                 if (mMap != null) {
                     String msg;
-                    if (!isTrackingMode)
-                        msg = "Tracking Enabled";
-                    else
-                        msg = "Tracking Disabled";
 
-                    isTrackingMode = !isTrackingMode;
+                    if (!isTrackingEnabled)
+                        msg = "Tracking Enabled";
+                    else {
+                        msg = "Tracking Disabled";
+                        presenter.killTrackingMode();
+                    }
+
+                    isTrackingEnabled = !isTrackingEnabled;
                     Toast.makeText(MapsHomeActivity.this, msg, Toast.LENGTH_SHORT).show();
                 }
             }
@@ -99,6 +108,20 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     private void moveToCurrentLoc(LatLng latLng) {
         CameraUpdate update = CameraUpdateFactory.newLatLngZoom(latLng, zoomLevel);
         mMap.animateCamera(update);
+    }
+
+    public LatLng getCurrentLocation() {
+        return currentLoc;
+    }
+
+    private void setCurrentLocationMarker(LatLng loc) {
+        MarkerOptions options = new MarkerOptions()
+                .title("You")
+                .icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_local_shipping_black_36dp))
+                .position(loc)
+                .snippet("Foten \n Next line \n Getting long and stuff!");
+
+        currentLocMarker = mMap.addMarker(options);
     }
 
     // check to see if google services is available
@@ -140,6 +163,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     @Override
     public void onDestroy() {
         Timber.d("Simpsons did it");
+        googleApiClient.disconnect();
         presenter.unSubscribeObserves();
         super.onDestroy();
     }
@@ -185,22 +209,29 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         if (location != null) {
             currentLoc = new LatLng(location.getLatitude(), location.getLongitude());
 
-            if (isTrackingMode) {
-                // set current location marker
-                if (currentLocMarker != null) {
-                    if (!currentLocMarker.isInfoWindowShown())
-                        currentLocMarker.remove();
+            if (isTrackingEnabled) {
+                Timber.d("enabled");
+                if (!isTrackingSuspended) {
+                    Timber.d("unsuspended move");
+                    //clearMarkers();
+                    updateCurrentMarker(true);
                 }
-
-                MarkerOptions options = new MarkerOptions()
-                        .title("You")
-                        .icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_local_shipping_black_36dp))
-                        .position(currentLoc)
-                        .snippet("Foten \n Next line \n Getting long and stuff!");
-
-                currentLocMarker = mMap.addMarker(options);
-                moveToCurrentLoc(currentLoc);
+            } else {
+                Timber.d("non tracked current loc update");
+                updateCurrentMarker(false);
             }
+        }
+    }
+
+    private void updateCurrentMarker(boolean moveCamera) {
+        // set current location marker
+        if (currentLocMarker != null) {
+            if (!currentLocMarker.isInfoWindowShown())
+                currentLocMarker.remove();
+        }
+        setCurrentLocationMarker(currentLoc);
+        if (moveCamera) {
+            moveToCurrentLoc(currentLoc);
         }
     }
 
@@ -210,17 +241,72 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
 
         if (mMap != null) {
             mMap.setInfoWindowAdapter(popupAdapter);
+
+            mMap.setOnCameraIdleListener(this);
+            mMap.setOnCameraMoveListener(this);
+            mMap.setOnMarkerClickListener(this);
+
+            googleApiClient = new GoogleApiClient.Builder(this)
+                    .addApi(LocationServices.API)
+                    .addConnectionCallbacks(this)
+                    .addOnConnectionFailedListener(this)
+                    .build();
+
+            googleApiClient.connect();
+
+            isMapReady = true;
+        }
+    }
+
+    @Override
+    public void onCameraMove() {
+
+    }
+
+    @Override
+    public void onCameraIdle() {
+        if (mMap != null) {
+            LatLngBounds bounds = mMap.getProjection().getVisibleRegion().latLngBounds;
+            bounds.getCenter();
+
+            if (isTrackingEnabled) {
+                // call new api call that adds markers rather than replaces - implement
+                // call runnable for 5 sec
+                isTrackingSuspended = true;
+                Timber.d("suspended runnable started");
+                presenter.determineUserInteraction(5000);
+                presenter.delayedStationRequest("100", bounds.getCenter().latitude, bounds.getCenter().longitude, true);
+            } else {
+                // limiting marker placement by 100 mile for the time being - cluster and other optimizations can be made in the future to allow a wider view
+                Timber.d("non tracked api call");
+                presenter.delayedStationRequest("100", bounds.getCenter().latitude, bounds.getCenter().longitude, false);
+            }
+        }
+    }
+
+    public void doit() {
+        if (currentLoc != null)
+            presenter.getTruckStationsByLocation("100", currentLoc.latitude, currentLoc.longitude, false);
+    }
+
+    @Override
+    public boolean onMarkerClick(Marker marker) {
+        if (isTrackingEnabled) {
+            Timber.d("delayed that shit by clicking dialog");
+            presenter.determineUserInteraction(15000);
         }
 
-        googleApiClient = new GoogleApiClient.Builder(this)
-                .addApi(LocationServices.API)
-                .addConnectionCallbacks(this)
-                .addOnConnectionFailedListener(this)
-                .build();
+        if (lastOpenMarker != null) {
+            lastOpenMarker.hideInfoWindow();
 
-        googleApiClient.connect();
-
-        presenter.doStuff("100", 36.665115, -121.636536);
+            if (lastOpenMarker.equals(marker)) {
+                lastOpenMarker = null;
+                return true;
+            }
+        }
+        marker.showInfoWindow();
+        lastOpenMarker = marker;
+        return true;
     }
 
     // ****************************************************************************
@@ -228,10 +314,31 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     // ****************************************************************************
 
     @Override
-    public void addTruckStopToMap(MarkerOptions options) {
+    public void addTruckStopToMap(MarkerOptions options, TruckStop truckStop) {
         if (mMap != null && options != null) {
-            mMap.addMarker(options);
+            Marker marker = mMap.addMarker(options);
+            popupAdapter.addMarkerToMap(marker, truckStop);
         }
+    }
+
+    @Override
+    public void clearMarkers() {
+        if (mMap != null) {
+            mMap.clear();
+            setCurrentLocationMarker(currentLoc);
+        }
+
+        popupAdapter.clearMarkerMap();
+    }
+
+    @Override
+    public void turnTrackingOn() {
+        Timber.d("tracking unsuspended");
+        isTrackingSuspended = false;
+    }
+
+    public void setMarkerOpen(Marker marker) {
+        lastOpenMarker = marker;
     }
 
     // ****************************************************************************
@@ -247,7 +354,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getTitle().equals(getResources().getString(R.string.menu_item_search_title))) {
-            Toast.makeText(this, "Search clicked", Toast.LENGTH_SHORT).show();
+
         } else if (item.getTitle().equals(getResources().getString(R.string.menu_item_satellite_toggle_title))) {
             if (mMap != null) {
                 if (!isSatellite)
