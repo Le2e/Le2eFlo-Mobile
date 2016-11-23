@@ -9,6 +9,6 @@ import dagger.Component;
 
 @Singleton
 @Component(modules = {DataModule.class})
-public interface PresenterComponent {
+public interface AppComponent {
     void inject(MapsHomeActivity mapsHomeActivity);
 }

@@ -46,11 +46,12 @@ import javax.inject.Inject;
 
 import timber.log.Timber;
 
-public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePresenter> implements OnMapReadyCallback,
-        GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, LocationListener, MapsHomeView, GoogleMap.OnCameraIdleListener, GoogleMap.OnCameraMoveListener, GoogleMap.OnMarkerClickListener {
+public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePresenter>
+        implements OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks,
+        GoogleApiClient.OnConnectionFailedListener, LocationListener, MapsHomeView,
+        GoogleMap.OnCameraIdleListener, GoogleMap.OnMarkerClickListener {
 
-    @Inject
-    DataManager dataManager;
+    @Inject DataManager dataManager;
 
     private GoogleMap mMap;
     private GoogleApiClient googleApiClient;
@@ -64,10 +65,37 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
 
     private float zoomLevel = 7.0f;
 
+    private boolean infoPop = false;
     private boolean isMapReady = false;
     private boolean isSatellite = false;
     private boolean isTrackingEnabled = false;
     private boolean isTrackingSuspended = false;
+
+    // ****************************************************************************
+    // ********************** ACTIVITY LIFECYCLE OVERRIDES ************************
+    // ****************************************************************************
+
+    @Override
+    public void onCreate(Bundle bundle) {
+        BaseApplication.get().getAppComponent().inject(this);
+        super.onCreate(bundle);
+
+        popupAdapter = new TruckStopPopupAdapter(new WeakReference<Activity>(this));
+
+        if (googleServicesAvailable()) {
+            setContentView(R.layout.activity_maps_home);
+            setupFabs();
+            initMap();
+        } else {
+            setContentView(R.layout.activity_maps_home_disabled);
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        googleApiClient.disconnect();
+        super.onDestroy();
+    }
 
     private void setupFabs() {
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
@@ -141,34 +169,6 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     }
 
     // ****************************************************************************
-    // ********************** ACTIVITY LIFECYCLE OVERRIDES ************************
-    // ****************************************************************************
-
-    @Override
-    public void onCreate(Bundle bundle) {
-        BaseApplication.get().getPresenterComponent().inject(this);
-        super.onCreate(bundle);
-
-        popupAdapter = new TruckStopPopupAdapter(new WeakReference<Activity>(this));
-
-        if (googleServicesAvailable()) {
-            setContentView(R.layout.activity_maps_home);
-            setupFabs();
-            initMap();
-        } else {
-            setContentView(R.layout.activity_maps_home_disabled);
-        }
-    }
-
-    @Override
-    public void onDestroy() {
-        Timber.d("Simpsons did it");
-        googleApiClient.disconnect();
-        presenter.unSubscribeObserves();
-        super.onDestroy();
-    }
-
-    // ****************************************************************************
     // ********************** GOOGLE MAPS / API CLIENT IMPL ***********************
     // ****************************************************************************
 
@@ -196,12 +196,12 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
 
     @Override
     public void onConnectionSuspended(int i) {
-
+        Timber.w("Google APIs connection suspended.");
     }
 
     @Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-
+        Timber.e("Google APIs connection failed with code: %d", connectionResult.getErrorCode());
     }
 
     @Override
@@ -243,7 +243,6 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
             mMap.setInfoWindowAdapter(popupAdapter);
 
             mMap.setOnCameraIdleListener(this);
-            mMap.setOnCameraMoveListener(this);
             mMap.setOnMarkerClickListener(this);
 
             googleApiClient = new GoogleApiClient.Builder(this)
@@ -259,43 +258,39 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     }
 
     @Override
-    public void onCameraMove() {
-
-    }
-
-    @Override
     public void onCameraIdle() {
-        if (mMap != null) {
-            LatLngBounds bounds = mMap.getProjection().getVisibleRegion().latLngBounds;
-            bounds.getCenter();
+        if(!infoPop) {
+            if (mMap != null) {
+                LatLngBounds bounds = mMap.getProjection().getVisibleRegion().latLngBounds;
+                bounds.getCenter();
 
-            if (isTrackingEnabled) {
-                // call new api call that adds markers rather than replaces - implement
-                // call runnable for 5 sec
-                isTrackingSuspended = true;
-                Timber.d("suspended runnable started");
-                presenter.determineUserInteraction(5000);
-                presenter.delayedStationRequest("100", bounds.getCenter().latitude, bounds.getCenter().longitude, true);
-            } else {
-                // limiting marker placement by 100 mile for the time being - cluster and other optimizations can be made in the future to allow a wider view
-                Timber.d("non tracked api call");
-                presenter.delayedStationRequest("100", bounds.getCenter().latitude, bounds.getCenter().longitude, false);
+                if (isTrackingEnabled) {
+                    // call new api call that adds markers rather than replaces - implement
+                    // call runnable for 5 sec
+                    isTrackingSuspended = true;
+                    Timber.d("suspended runnable started");
+                    presenter.determineUserInteraction(5000);
+                    presenter.delayedStationRequest("100", bounds.getCenter().latitude, bounds.getCenter().longitude, true);
+                } else {
+                    // limiting marker placement by 100 mile for the time being - cluster and other optimizations can be made in the future to allow a wider view
+                    Timber.d("non tracked api call");
+                    presenter.delayedStationRequest("100", bounds.getCenter().latitude, bounds.getCenter().longitude, false);
+                }
             }
         }
-    }
 
-    public void doit() {
-        if (currentLoc != null)
-            presenter.getTruckStationsByLocation("100", currentLoc.latitude, currentLoc.longitude, false);
+        infoPop = false;
     }
 
     @Override
     public boolean onMarkerClick(Marker marker) {
         if (isTrackingEnabled) {
-            Timber.d("delayed that shit by clicking dialog");
+            Timber.d("delayed by clicking dialog");
             presenter.determineUserInteraction(15000);
         }
 
+        infoPop = true;
+        /*
         if (lastOpenMarker != null) {
             lastOpenMarker.hideInfoWindow();
 
@@ -306,7 +301,8 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         }
         marker.showInfoWindow();
         lastOpenMarker = marker;
-        return true;
+        */
+        return false;
     }
 
     // ****************************************************************************
@@ -337,8 +333,9 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         isTrackingSuspended = false;
     }
 
-    public void setMarkerOpen(Marker marker) {
-        lastOpenMarker = marker;
+    @Override
+    public void onError(Throwable e) {
+        // TODO: Handle it
     }
 
     // ****************************************************************************

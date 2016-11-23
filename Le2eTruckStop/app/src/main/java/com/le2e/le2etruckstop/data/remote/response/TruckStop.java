@@ -64,4 +64,25 @@ public class TruckStop {
     public String getRawLine3() {
         return rawLine3;
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        TruckStop truckStop = (TruckStop) o;
+
+        if (name != null ? !name.equals(truckStop.name) : truckStop.name != null) return false;
+        if (lat != null ? !lat.equals(truckStop.lat) : truckStop.lat != null) return false;
+        return lng != null ? lng.equals(truckStop.lng) : truckStop.lng == null;
+
+    }
+
+    @Override
+    public int hashCode() {
+        int result = name != null ? name.hashCode() : 0;
+        result = 31 * result + (lat != null ? lat.hashCode() : 0);
+        result = 31 * result + (lng != null ? lng.hashCode() : 0);
+        return result;
+    }
 }

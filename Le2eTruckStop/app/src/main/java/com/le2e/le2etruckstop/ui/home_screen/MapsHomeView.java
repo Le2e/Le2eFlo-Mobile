@@ -9,4 +9,5 @@ public interface MapsHomeView extends MvpView {
     void addTruckStopToMap(MarkerOptions options, TruckStop details);
     void clearMarkers();
     void turnTrackingOn();
+    void onError(Throwable e);
 }

@@ -42,7 +42,6 @@ public abstract class MvpBaseActivity<V extends MvpView, P extends MvpPresenter<
 
     @Override
     public void onDestroy() {
-        Timber.d("Simpsons did it");
         presenter.detachView();
         super.onDestroy();
     }

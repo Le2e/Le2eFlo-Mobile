@@ -12,6 +12,7 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.le2e.le2etruckstop.R;
+import com.le2e.le2etruckstop.data.model.TruckStopMarker;
 import com.le2e.le2etruckstop.data.remote.response.TruckStop;
 import com.le2e.le2etruckstop.ui.home_screen.MapsHomeActivity;
 
@@ -19,6 +20,9 @@ import java.lang.ref.WeakReference;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import timber.log.Timber;
 
@@ -26,20 +30,31 @@ public class TruckStopPopupAdapter implements GoogleMap.InfoWindowAdapter {
     private LayoutInflater layoutInflater;
     private HashMap<Marker, TruckStop> stopsMap;
     private MapsHomeActivity activity;
+    private HashSet<TruckStop> stationSet;
 
     public TruckStopPopupAdapter(WeakReference<Activity> activity) {
         this.activity = (MapsHomeActivity)activity.get();
         layoutInflater = activity.get().getLayoutInflater();
         stopsMap = new HashMap<>();
+        stationSet = new HashSet<>();
     }
 
     public void clearMarkerMap() {
         stopsMap.clear();
+        stationSet.clear();
     }
 
     public void addMarkerToMap(Marker marker, TruckStop data) {
-        stopsMap.put(marker, data);
-        Timber.d("***** hashMap size: %s *****", stopsMap.size());
+        // check if stop has already been added to map - if not, add it
+        if(!stationSet.contains(data)){
+            stationSet.add(data);
+            stopsMap.put(marker, data);
+        }
+
+        Timber.d("***** stopMap size: %s *****", stopsMap.size());
+        Timber.d("***** stationMap size: %s *****", stationSet.size());
+
+        /* revisit functionality to handle clearing map when too many unique marks are present
         if(stopsMap.size() > 500){
             Timber.d("hash map getting large, clearing out");
             if(activity != null) {
@@ -47,22 +62,7 @@ public class TruckStopPopupAdapter implements GoogleMap.InfoWindowAdapter {
                 stopsMap.clear();
             }
         }
-    }
-
-    public void removeMarkerFromMap(Marker marker) {
-        stopsMap.remove(marker);
-    }
-
-    public HashMap<Marker, TruckStop> getStopsMap() {
-        return stopsMap;
-    }
-
-    public TruckStop getTruckStop(Marker marker) {
-        return stopsMap.get(marker);
-    }
-
-    public void setLayoutInflater(WeakReference<Activity> activity) {
-        layoutInflater = activity.get().getLayoutInflater();
+        */
     }
 
     @Override
