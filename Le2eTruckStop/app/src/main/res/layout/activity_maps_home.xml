@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<android.support.design.widget.CoordinatorLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<android.support.design.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
@@ -9,32 +8,32 @@
     tools:context="com.le2e.le2etruckstop.ui.home_screen.MapsHomeActivity">
 
     <fragment
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:id="@+id/map_fragment"
         android:name="com.google.android.gms.maps.MapFragment"
-        android:id="@+id/map_fragment" />
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
         android:layout_gravity="bottom"
-        android:gravity="center_horizontal">
+        android:gravity="center_horizontal"
+        android:orientation="horizontal">
 
         <android.support.design.widget.FloatingActionButton
             android:id="@+id/fab"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="10dp"
             android:layout_marginBottom="20dp"
+            android:layout_marginEnd="10dp"
             app:srcCompat="@drawable/ic_my_location_white_48dp" />
 
         <android.support.design.widget.FloatingActionButton
             android:id="@+id/track_fab"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="10dp"
             android:layout_marginBottom="20dp"
+            android:layout_marginStart="10dp"
             app:backgroundTint="#123456"
             app:rippleColor="#654321"
             app:srcCompat="@drawable/ic_navigation_white_48dp" />

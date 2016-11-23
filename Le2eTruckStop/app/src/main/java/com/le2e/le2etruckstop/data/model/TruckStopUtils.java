@@ -11,33 +11,32 @@ public class TruckStopUtils {
     private final double EQUATOR_LENGTH = 24874;
     private final double EQUATOR_PIXEL_VALUE = 256;
 
-    public TruckStopUtils(){
+    public TruckStopUtils() {
         stopsMap = new HashMap<>();
     }
 
-    public void clearMarkerMap(){
+    public void clearMarkerMap() {
         stopsMap.clear();
     }
 
-    public void addMarkerToMap(Marker marker, TruckStop data){
+    public void addMarkerToMap(Marker marker, TruckStop data) {
         stopsMap.put(marker, data);
     }
 
-    public void removeMarkerFromMap(Marker marker){
+    public void removeMarkerFromMap(Marker marker) {
         stopsMap.remove(marker);
     }
 
-    public HashMap<Marker, TruckStop> getStopsMap(){
+    public HashMap<Marker, TruckStop> getStopsMap() {
         return stopsMap;
     }
 
-    public TruckStop getTruckStop(Marker marker){
+    public TruckStop getTruckStop(Marker marker) {
         return stopsMap.get(marker);
     }
 
 
-
-    public static String formatTruckStopRawLine(String one, String two, String three){
+    public static String formatTruckStopRawLine(String one, String two, String three) {
         StringBuilder sb = new StringBuilder();
 
         if (one != null)

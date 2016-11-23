@@ -8,11 +8,9 @@ import android.view.View;
 import android.widget.TextView;
 
 import com.google.android.gms.maps.GoogleMap;
-import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.le2e.le2etruckstop.R;
-import com.le2e.le2etruckstop.data.model.TruckStopMarker;
 import com.le2e.le2etruckstop.data.remote.response.TruckStop;
 import com.le2e.le2etruckstop.ui.home_screen.MapsHomeActivity;
 
@@ -21,8 +19,6 @@ import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 import timber.log.Timber;
 
@@ -33,7 +29,7 @@ public class TruckStopPopupAdapter implements GoogleMap.InfoWindowAdapter {
     private HashSet<TruckStop> stationSet;
 
     public TruckStopPopupAdapter(WeakReference<Activity> activity) {
-        this.activity = (MapsHomeActivity)activity.get();
+        this.activity = (MapsHomeActivity) activity.get();
         layoutInflater = activity.get().getLayoutInflater();
         stopsMap = new HashMap<>();
         stationSet = new HashSet<>();
@@ -46,13 +42,10 @@ public class TruckStopPopupAdapter implements GoogleMap.InfoWindowAdapter {
 
     public void addMarkerToMap(Marker marker, TruckStop data) {
         // check if stop has already been added to map - if not, add it
-        if(!stationSet.contains(data)){
+        if (!stationSet.contains(data)) {
             stationSet.add(data);
             stopsMap.put(marker, data);
         }
-
-        Timber.d("***** stopMap size: %s *****", stopsMap.size());
-        Timber.d("***** stationMap size: %s *****", stationSet.size());
 
         /* revisit functionality to handle clearing map when too many unique marks are present
         if(stopsMap.size() > 500){
@@ -75,7 +68,7 @@ public class TruckStopPopupAdapter implements GoogleMap.InfoWindowAdapter {
         View view = null;
         TruckStop data = stopsMap.get(marker);
         Timber.d("num stored markers: --:-- %s", stopsMap.size());
-        if(activity != null) {
+        if (activity != null) {
             if (data != null) {
                 if (layoutInflater != null) {
                     view = layoutInflater.inflate(R.layout.popup_poi_window, null);
@@ -112,14 +105,14 @@ public class TruckStopPopupAdapter implements GoogleMap.InfoWindowAdapter {
         return view;
     }
 
-    private void setTextViewText(TextView view, String text){
-        if(text != null)
+    private void setTextViewText(TextView view, String text) {
+        if (text != null)
             view.setText(text);
         else
             view.setVisibility(View.GONE);
     }
 
-    private String calcDistance(String stopLat, String stopLng){
+    private String calcDistance(String stopLat, String stopLng) {
         LatLng latLng = activity.getCurrentLocation();
         double sLat = Double.parseDouble(stopLat);
         double sLng = Double.parseDouble(stopLng);

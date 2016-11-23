@@ -51,20 +51,18 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         GoogleApiClient.OnConnectionFailedListener, LocationListener, MapsHomeView,
         GoogleMap.OnCameraIdleListener, GoogleMap.OnMarkerClickListener {
 
-    @Inject DataManager dataManager;
+    @Inject
+    DataManager dataManager;
 
     private GoogleMap mMap;
     private GoogleApiClient googleApiClient;
     private LocationRequest locationRequest;
+    private Marker currentLocMarker;
+    private LatLng currentLoc;
 
     private TruckStopPopupAdapter popupAdapter;
 
-    private Marker currentLocMarker;
-    private Marker lastOpenMarker;
-    private LatLng currentLoc;
-
     private float zoomLevel = 7.0f;
-
     private boolean infoPop = false;
     private boolean isMapReady = false;
     private boolean isSatellite = false;
@@ -96,6 +94,8 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         googleApiClient.disconnect();
         super.onDestroy();
     }
+
+    // ******************* MISC ********************
 
     private void setupFabs() {
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
@@ -213,7 +213,6 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
                 Timber.d("enabled");
                 if (!isTrackingSuspended) {
                     Timber.d("unsuspended move");
-                    //clearMarkers();
                     updateCurrentMarker(true);
                 }
             } else {
@@ -259,7 +258,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
 
     @Override
     public void onCameraIdle() {
-        if(!infoPop) {
+        if (!infoPop) {
             if (mMap != null) {
                 LatLngBounds bounds = mMap.getProjection().getVisibleRegion().latLngBounds;
                 bounds.getCenter();

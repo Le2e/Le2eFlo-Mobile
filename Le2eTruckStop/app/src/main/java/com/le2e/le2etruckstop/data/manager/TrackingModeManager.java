@@ -11,7 +11,7 @@ public class TrackingModeManager {
     private TrackingImpl presenter;
     private Handler userInteractionHandler;
 
-    public TrackingModeManager(TrackingImpl presenter){
+    public TrackingModeManager(TrackingImpl presenter) {
         userInteractionHandler = new Handler();
         this.presenter = presenter;
     }
@@ -24,12 +24,12 @@ public class TrackingModeManager {
         }
     };
 
-    public void manageTrackingRunnable(int delay){
+    public void manageTrackingRunnable(int delay) {
         userInteractionHandler.removeCallbacks(userInteractionRunnable);
         userInteractionHandler.postDelayed(userInteractionRunnable, delay);
     }
 
-    public void stopTrackingMode(){
+    public void stopTrackingMode() {
         userInteractionHandler.removeCallbacks(userInteractionRunnable);
     }
 }
