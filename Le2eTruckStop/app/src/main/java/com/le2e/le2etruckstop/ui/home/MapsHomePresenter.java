@@ -1,20 +1,26 @@
-package com.le2e.le2etruckstop.ui.home_screen;
+package com.le2e.le2etruckstop.ui.home;
 
 
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.le2e.le2etruckstop.R;
 import com.le2e.le2etruckstop.data.manager.DataManager;
+import com.le2e.le2etruckstop.data.manager.StationMapManager;
 import com.le2e.le2etruckstop.data.manager.StationRequestManager;
+import com.le2e.le2etruckstop.data.manager.StationSearchManager;
 import com.le2e.le2etruckstop.data.manager.TrackingModeManager;
 import com.le2e.le2etruckstop.data.remote.response.StationsResponse;
 import com.le2e.le2etruckstop.data.remote.response.TruckStop;
 import com.le2e.le2etruckstop.ui.base.mvp.core.MvpBasePresenter;
-import com.le2e.le2etruckstop.ui.home_screen.impl.StationRequestImpl;
-import com.le2e.le2etruckstop.ui.home_screen.impl.TrackingImpl;
+import com.le2e.le2etruckstop.ui.home.impl.PopupInfoImpl;
+import com.le2e.le2etruckstop.ui.home.impl.SearchImpl;
+import com.le2e.le2etruckstop.ui.home.impl.StationRequestImpl;
+import com.le2e.le2etruckstop.ui.home.impl.TrackingImpl;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import rx.Subscriber;
 import rx.Subscription;
@@ -22,14 +28,19 @@ import rx.android.schedulers.AndroidSchedulers;
 import rx.schedulers.Schedulers;
 import timber.log.Timber;
 
-class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements TrackingImpl, StationRequestImpl {
+class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements TrackingImpl, StationRequestImpl, PopupInfoImpl, SearchImpl {
     private DataManager dataManager;
-    private Subscription truckStationSub;
+    private StationSearchManager searchManager;
+    private StationMapManager mapManager;
     private TrackingModeManager trackingManager;
     private StationRequestManager stationRequestManager;
 
+    private Subscription truckStationSub;
+
     MapsHomePresenter(DataManager dataManager) {
         this.dataManager = dataManager;
+        mapManager = new StationMapManager();
+        searchManager = new StationSearchManager(this);
         trackingManager = new TrackingModeManager(this);
         stationRequestManager = new StationRequestManager(this);
     }
@@ -43,16 +54,70 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
     }
 
     // **********************************************************************************
+    // **************************** SEARCH MANAGER METHODS ******************************
+    // **********************************************************************************
+
+    void performSearch(String name, String city, String state, String zip) {
+        searchManager.determineSearchParams(name, city, state, zip);
+    }
+
+    @Override
+    public HashMap<Marker, TruckStop> getMarkerMap() {
+        return mapManager.getMarkersMap();
+    }
+
+    // clear the map - put markers on map
+    @Override
+    public void deliverSearchResults(ArrayList<TruckStop> results) {
+        Timber.d("Results found: %s", results.size());
+
+        if (isViewAttached()) {
+            getView().clearMarkers();
+
+            String s = results.size() + " results found";
+            getView().printResults(s);
+
+            for (TruckStop truckStop : results){
+                addStationMarkerToMap(truckStop);
+            }
+        }
+
+        searchManager.clearResults();
+        mapManager.getMarkersMap().size();
+    }
+
+    // **********************************************************************************
+    // ****************************** MAP MANAGER METHODS *******************************
+    // **********************************************************************************
+
+    void clearMapMarkers() {
+        mapManager.clearMapMarkers();
+    }
+
+    void addMarkerToMapManager(Marker marker, TruckStop truckStop) {
+        mapManager.addMarkerToMapManager(marker, truckStop);
+    }
+
+    @Override
+    public TruckStop getStopInfoFromMarker(Marker marker) {
+        return mapManager.getStopInfoFromMarker(marker);
+    }
+
+    // **********************************************************************************
     // **************************** STATION REQUEST METHODS *****************************
     // **********************************************************************************
 
-    void delayedStationRequest(String radius, double lat, double lng, boolean saveOldMarkers) {
-        stationRequestManager.manageStationRequestRunnable(radius, lat, lng, saveOldMarkers);
+    void delayedStationRequest(int delay, String radius, double lat, double lng, boolean saveOldMarkers) {
+        stationRequestManager.manageStationRequestRunnable(delay, radius, lat, lng, saveOldMarkers);
     }
 
     @Override
     public void getStationsByLoc(String radius, double lat, double lng) {
         getTruckStationsByLocation(radius, lat, lng);
+    }
+
+    void killRequestRunnable(){
+        stationRequestManager.stopRequestRunnable();
     }
 
     // **********************************************************************************
@@ -115,20 +180,22 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
                     Timber.d("adding markers to existing map");
                 }
 
-                double lat;
-                double lng;
-                MarkerOptions options = new MarkerOptions();
-
                 for (TruckStop truckStop : list) {
-                    lat = Double.parseDouble(truckStop.getLat());
-                    lng = Double.parseDouble(truckStop.getLng());
-                    options.position(new LatLng(lat, lng));
-                    options.title(truckStop.getName());
-                    options.icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_store_mall_directory_black_36dp));
-
-                    getView().addTruckStopToMap(options, truckStop);
+                    addStationMarkerToMap(truckStop);
                 }
             }
         }
+    }
+
+    private void addStationMarkerToMap(TruckStop truckStop) {
+        MarkerOptions options = new MarkerOptions();
+        double lat = Double.parseDouble(truckStop.getLat());
+        double lng = Double.parseDouble(truckStop.getLng());
+        options.position(new LatLng(lat, lng));
+        options.title(truckStop.getName());
+        options.icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_store_mall_directory_black_36dp));
+
+        if (isViewAttached())
+            getView().addTruckStopToMap(options, truckStop);
     }
 }

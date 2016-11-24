@@ -1,7 +1,7 @@
 package com.le2e.le2etruckstop.injection.component;
 
 import com.le2e.le2etruckstop.injection.module.DataModule;
-import com.le2e.le2etruckstop.ui.home_screen.MapsHomeActivity;
+import com.le2e.le2etruckstop.ui.home.MapsHomeActivity;
 
 import javax.inject.Singleton;
 
