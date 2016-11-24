@@ -1,4 +1,4 @@
-package com.le2e.le2etruckstop.ui.home_screen.impl;
+package com.le2e.le2etruckstop.ui.home.impl;
 
 
 public interface TrackingImpl {

@@ -3,7 +3,7 @@ package com.le2e.le2etruckstop.data.manager;
 
 import android.os.Handler;
 
-import com.le2e.le2etruckstop.ui.home_screen.impl.StationRequestImpl;
+import com.le2e.le2etruckstop.ui.home.impl.StationRequestImpl;
 
 import timber.log.Timber;
 
@@ -14,7 +14,6 @@ public class StationRequestManager {
     private double runLat;
     private double runLng;
     private boolean saveMarkers;
-    private final int RUNNABLE_DELAY = 1000;
 
     public StationRequestManager(StationRequestImpl presnterImpl) {
         this.presnterImpl = presnterImpl;
@@ -29,14 +28,18 @@ public class StationRequestManager {
         }
     };
 
-    public void manageStationRequestRunnable(String radius, double lat, double lng, boolean save) {
-        Timber.d("api request runnable started!");
+    public void manageStationRequestRunnable(int delay, String radius, double lat, double lng, boolean save) {
+        Timber.d("api request runnable started! w/ delay: %s", delay);
         delayedRequestHandler.removeCallbacks(stationRequestRunnable);
         saveMarkers = save;
         runRad = radius;
         runLat = lat;
         runLng = lng;
-        delayedRequestHandler.postDelayed(stationRequestRunnable, RUNNABLE_DELAY);
+        delayedRequestHandler.postDelayed(stationRequestRunnable, delay);
+    }
+
+    public void stopRequestRunnable() {
+        delayedRequestHandler.removeCallbacks(stationRequestRunnable);
     }
 
     public boolean isSaveMarkers() {

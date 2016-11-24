@@ -61,6 +61,9 @@ dependencies {
     compile 'com.google.dagger:dagger:2.5'
     apt 'com.google.dagger:dagger-compiler:2.5'
 
+    // Sliding Up Pandel
+    compile 'com.sothree.slidinguppanel:library:3.3.0'
+
     // RxJava
     compile 'io.reactivex:rxjava:1.1.6'
     compile 'io.reactivex:rxandroid:1.2.1'

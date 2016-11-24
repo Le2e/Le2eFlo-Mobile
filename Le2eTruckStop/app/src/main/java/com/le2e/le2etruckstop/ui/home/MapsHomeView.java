@@ -1,4 +1,4 @@
-package com.le2e.le2etruckstop.ui.home_screen;
+package com.le2e.le2etruckstop.ui.home;
 
 
 import com.google.android.gms.maps.model.MarkerOptions;
@@ -10,4 +10,5 @@ public interface MapsHomeView extends MvpView {
     void clearMarkers();
     void turnTrackingOn();
     void onError(Throwable e);
+    void printResults(String num);
 }

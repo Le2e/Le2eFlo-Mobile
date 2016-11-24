@@ -1,43 +1,65 @@
 <?xml version="1.0" encoding="utf-8"?>
-<android.support.design.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:fitsSystemWindows="true"
-    tools:context="com.le2e.le2etruckstop.ui.home_screen.MapsHomeActivity">
+    android:layout_height="match_parent">
 
-    <fragment
-        android:id="@+id/map_fragment"
-        android:name="com.google.android.gms.maps.MapFragment"
+    <com.sothree.slidinguppanel.SlidingUpPanelLayout xmlns:sothree="http://schemas.android.com/apk/res-auto"
+        android:id="@+id/sliding_layout"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:gravity="top"
+        sothree:umanoDragView="@+id/dragView"
+        sothree:umanoPanelHeight="50dp"
+        sothree:umanoShadowHeight="4dp">
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        android:gravity="center_horizontal"
-        android:orientation="horizontal">
+        <!-- Main Layout -->
+        <android.support.design.widget.CoordinatorLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            tools:context="com.le2e.le2etruckstop.ui.home.MapsHomeActivity">
 
-        <android.support.design.widget.FloatingActionButton
-            android:id="@+id/fab"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="20dp"
-            android:layout_marginEnd="10dp"
-            app:srcCompat="@drawable/ic_my_location_white_48dp" />
+            <fragment
+                android:id="@+id/map_fragment"
+                android:name="com.google.android.gms.maps.MapFragment"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
 
-        <android.support.design.widget.FloatingActionButton
-            android:id="@+id/track_fab"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="20dp"
-            android:layout_marginStart="10dp"
-            app:backgroundTint="#123456"
-            app:rippleColor="#654321"
-            app:srcCompat="@drawable/ic_navigation_white_48dp" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom"
+                android:gravity="center_horizontal"
+                android:orientation="horizontal">
 
-    </LinearLayout>
+                <android.support.design.widget.FloatingActionButton
+                    android:id="@+id/fab"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="20dp"
+                    android:layout_marginEnd="10dp"
+                    app:backgroundTint="@color/colorPrimaryDark"
+                    app:rippleColor="@color/colorPrimary"
+                    app:srcCompat="@drawable/ic_my_location_white_48dp" />
 
-</android.support.design.widget.CoordinatorLayout>
+                <android.support.design.widget.FloatingActionButton
+                    android:id="@+id/track_fab"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="20dp"
+                    android:layout_marginStart="10dp"
+                    app:backgroundTint="@color/colorPrimaryDark"
+                    app:rippleColor="@color/colorPrimary"
+                    app:srcCompat="@drawable/ic_navigation_white_48dp" />
+
+            </LinearLayout>
+
+        </android.support.design.widget.CoordinatorLayout>
+
+        <!-- Sliding Layout -->
+        <include layout="@layout/sliding_up_search_window" />
+
+    </com.sothree.slidinguppanel.SlidingUpPanelLayout>
+</LinearLayout>

@@ -1,9 +1,10 @@
-package com.le2e.le2etruckstop.ui.home_screen;
+package com.le2e.le2etruckstop.ui.home;
 
 
 import android.Manifest;
 import android.app.Activity;
 import android.app.Dialog;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Build;
@@ -15,6 +16,9 @@ import android.support.v4.app.ActivityCompat;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -39,11 +43,14 @@ import com.le2e.le2etruckstop.data.manager.DataManager;
 import com.le2e.le2etruckstop.data.remote.response.TruckStop;
 import com.le2e.le2etruckstop.ui.base.mvp.MvpBaseActivity;
 import com.le2e.le2etruckstop.ui.common.TruckStopPopupAdapter;
+import com.sothree.slidinguppanel.SlidingUpPanelLayout;
 
 import java.lang.ref.WeakReference;
 
 import javax.inject.Inject;
 
+import butterknife.BindView;
+import butterknife.ButterKnife;
 import timber.log.Timber;
 
 public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePresenter>
@@ -53,6 +60,19 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
 
     @Inject
     DataManager dataManager;
+
+    @BindView(R.id.sliding_layout)
+    SlidingUpPanelLayout searchSlideLayout;
+    @BindView(R.id.search_name_et)
+    EditText etStopName;
+    @BindView(R.id.search_city_et)
+    EditText etCityName;
+    @BindView(R.id.search_state_et)
+    EditText etStateName;
+    @BindView(R.id.search_zip_et)
+    EditText etZipcode;
+    @BindView(R.id.search_btn)
+    Button btnSearchStart;
 
     private GoogleMap mMap;
     private GoogleApiClient googleApiClient;
@@ -64,10 +84,11 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
 
     private float zoomLevel = 7.0f;
     private boolean infoPop = false;
-    private boolean isMapReady = false;
+    private boolean isMapFirstLoad = false;
     private boolean isSatellite = false;
     private boolean isTrackingEnabled = false;
     private boolean isTrackingSuspended = false;
+    private boolean isSearching = false;
 
     // ****************************************************************************
     // ********************** ACTIVITY LIFECYCLE OVERRIDES ************************
@@ -78,12 +99,14 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         BaseApplication.get().getAppComponent().inject(this);
         super.onCreate(bundle);
 
-        popupAdapter = new TruckStopPopupAdapter(new WeakReference<Activity>(this));
+        popupAdapter = new TruckStopPopupAdapter(new WeakReference<Activity>(this), presenter);
 
         if (googleServicesAvailable()) {
             setContentView(R.layout.activity_maps_home);
+            ButterKnife.bind(this);
             setupFabs();
             initMap();
+            setupSlide();
         } else {
             setContentView(R.layout.activity_maps_home_disabled);
         }
@@ -96,6 +119,55 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     }
 
     // ******************* MISC ********************
+
+    private void setupSlide() {
+        btnSearchStart.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // do search
+                presenter.performSearch(
+                        etStopName.getText().toString(),
+                        etCityName.getText().toString(),
+                        etStateName.getText().toString(),
+                        etZipcode.getText().toString());
+
+                // dismiss keyboard and slide panel up
+                searchSlideLayout.setPanelState(SlidingUpPanelLayout.PanelState.COLLAPSED);
+                dismissKeyboard();
+
+                // determine tracking mode operation
+                // --- if tracking
+                //      - maintain isSearching block on updates
+                if(isTrackingEnabled){
+                    isSearching = true;
+                }
+            }
+        });
+
+        searchSlideLayout.addPanelSlideListener(new SlidingUpPanelLayout.PanelSlideListener() {
+            @Override
+            public void onPanelSlide(View panel, float slideOffset) {
+                // do nothing
+            }
+
+            @Override
+            public void onPanelStateChanged(View panel, SlidingUpPanelLayout.PanelState previousState, SlidingUpPanelLayout.PanelState newState) {
+                if(newState == SlidingUpPanelLayout.PanelState.EXPANDED) {
+                    isSearching = true;
+                    // cancel all runnables happening
+                    Timber.d("Killed runnables");
+                    presenter.killRequestRunnable();
+                    presenter.killTrackingMode();
+                }
+
+                if(newState == SlidingUpPanelLayout.PanelState.COLLAPSED) {
+                    dismissKeyboard();
+                }
+
+                Timber.d("Panel: %s", newState);
+            }
+        });
+    }
 
     private void setupFabs() {
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
@@ -131,6 +203,13 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     private void initMap() {
         MapFragment mapFragment = (MapFragment) getFragmentManager().findFragmentById(R.id.map_fragment);
         mapFragment.getMapAsync(this);
+    }
+
+    private void dismissKeyboard(){
+        if(getCurrentFocus() != null){
+            InputMethodManager imm = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
+            imm.hideSoftInputFromWindow(getCurrentFocus().getWindowToken(), 0);
+        }
     }
 
     private void moveToCurrentLoc(LatLng latLng) {
@@ -209,8 +288,14 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         if (location != null) {
             currentLoc = new LatLng(location.getLatitude(), location.getLongitude());
 
+            if(isMapFirstLoad){
+                moveToCurrentLoc(currentLoc);
+                isMapFirstLoad = false;
+            }
+
+            Timber.d("SearchingModeEnabled: %s", isSearching);
+            Timber.d("TrackingModeEnabled: %s", isTrackingEnabled);
             if (isTrackingEnabled) {
-                Timber.d("enabled");
                 if (!isTrackingSuspended) {
                     Timber.d("unsuspended move");
                     updateCurrentMarker(true);
@@ -252,55 +337,76 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
 
             googleApiClient.connect();
 
-            isMapReady = true;
+            isMapFirstLoad = true;
         }
     }
 
     @Override
     public void onCameraIdle() {
-        if (!infoPop) {
-            if (mMap != null) {
-                LatLngBounds bounds = mMap.getProjection().getVisibleRegion().latLngBounds;
-                bounds.getCenter();
+        // Prevents api call upon first load before the map is setup and currentLocation has been found.
+        if(!isMapFirstLoad) {
 
-                if (isTrackingEnabled) {
-                    // call new api call that adds markers rather than replaces - implement
-                    // call runnable for 5 sec
-                    isTrackingSuspended = true;
-                    Timber.d("suspended runnable started");
-                    presenter.determineUserInteraction(5000);
-                    presenter.delayedStationRequest("100", bounds.getCenter().latitude, bounds.getCenter().longitude, true);
-                } else {
-                    // limiting marker placement by 100 mile for the time being - cluster and other optimizations can be made in the future to allow a wider view
-                    Timber.d("non tracked api call");
-                    presenter.delayedStationRequest("100", bounds.getCenter().latitude, bounds.getCenter().longitude, false);
+            // Prevents api calls / tracking movement while search window is open or after it
+            //      has been closed for a specified duration.
+            if (!isSearching) {
+
+                // Prevents actions when a info window is opened for a marker.
+                if (!infoPop) {
+                    if (mMap != null) {
+                        // get bounds for current view of map
+                        LatLngBounds bounds = mMap.getProjection().getVisibleRegion().latLngBounds;
+                        bounds.getCenter();
+
+                        // Tracking logic
+                        if (isTrackingEnabled) {
+                            // Prevent camera recenter w/ isTrackingSuspended
+                            isTrackingSuspended = true;
+
+                            Timber.d("suspended runnable started");
+
+                            // Spawn runnable when user slides screen to recenter camera after
+                            //      brief duration.
+                            presenter.determineUserInteraction(5000);
+
+                            // Make api call to add points to map as user scrolls, use true param
+                            //      to prevent marker deletion.
+                            presenter.delayedStationRequest(
+                                    1000,
+                                    "100",
+                                    bounds.getCenter().latitude,
+                                    bounds.getCenter().longitude,
+                                    true);
+                        } else {
+                            Timber.d("non tracked api call");
+                            // Limiting marker placement by 100 mile for the time being - cluster
+                            //      and other optimizations can be made in the future to allow
+                            //      a wider view.
+                            presenter.delayedStationRequest(
+                                    1000,
+                                    "100",
+                                    bounds.getCenter().latitude,
+                                    bounds.getCenter().longitude,
+                                    false);
+                        }
+                    }
                 }
             }
         }
 
+        // clear popup block after its been seen for first time
         infoPop = false;
     }
 
     @Override
     public boolean onMarkerClick(Marker marker) {
+        // Delay tracking mode restart by specific amount
         if (isTrackingEnabled) {
             Timber.d("delayed by clicking dialog");
             presenter.determineUserInteraction(15000);
         }
 
+        // set popup blocker to prevent post pop camera movement / api calls
         infoPop = true;
-        /*
-        if (lastOpenMarker != null) {
-            lastOpenMarker.hideInfoWindow();
-
-            if (lastOpenMarker.equals(marker)) {
-                lastOpenMarker = null;
-                return true;
-            }
-        }
-        marker.showInfoWindow();
-        lastOpenMarker = marker;
-        */
         return false;
     }
 
@@ -312,7 +418,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     public void addTruckStopToMap(MarkerOptions options, TruckStop truckStop) {
         if (mMap != null && options != null) {
             Marker marker = mMap.addMarker(options);
-            popupAdapter.addMarkerToMap(marker, truckStop);
+            presenter.addMarkerToMapManager(marker, truckStop);
         }
     }
 
@@ -323,18 +429,40 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
             setCurrentLocationMarker(currentLoc);
         }
 
-        popupAdapter.clearMarkerMap();
+        presenter.clearMapMarkers();
     }
 
     @Override
     public void turnTrackingOn() {
         Timber.d("tracking unsuspended");
+
+        if(isSearching)
+            Timber.d("search block cleared");
+
         isTrackingSuspended = false;
+        isSearching = false;
     }
 
     @Override
     public void onError(Throwable e) {
         // TODO: Handle it
+    }
+
+    // display toast, clear inputs, start timer for delay on return to tracking
+    @Override
+    public void printResults(String message) {
+        clearSearchInputs();
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+        Timber.d("***** request delay started! ******");
+        presenter.determineUserInteraction(30000);
+        presenter.delayedStationRequest(30000, "100", currentLoc.latitude, currentLoc.longitude, false);
+    }
+
+    private void clearSearchInputs(){
+        etStopName.getText().clear();
+        etCityName.getText().clear();
+        etStateName.getText().clear();
+        etZipcode.getText().clear();
     }
 
     // ****************************************************************************
@@ -349,9 +477,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getTitle().equals(getResources().getString(R.string.menu_item_search_title))) {
-
-        } else if (item.getTitle().equals(getResources().getString(R.string.menu_item_satellite_toggle_title))) {
+        if (item.getTitle().equals(getResources().getString(R.string.menu_item_satellite_toggle_title))) {
             if (mMap != null) {
                 if (!isSatellite)
                     mMap.setMapType(GoogleMap.MAP_TYPE_SATELLITE);
