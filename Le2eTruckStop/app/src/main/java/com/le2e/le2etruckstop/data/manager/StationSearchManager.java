@@ -1,6 +1,8 @@
 package com.le2e.le2etruckstop.data.manager;
 
 
+import android.os.Handler;
+
 import com.google.android.gms.maps.model.Marker;
 import com.le2e.le2etruckstop.data.remote.response.TruckStop;
 import com.le2e.le2etruckstop.ui.home.impl.SearchImpl;
@@ -16,10 +18,25 @@ public class StationSearchManager {
     private SearchImpl presenterImpl;
     private ArrayList<TruckStop> matchingList;
     private HashMap<Marker, TruckStop> stops;
+    private Handler searchBlockHandler;
 
     public StationSearchManager(SearchImpl presenterImpl) {
         this.presenterImpl = presenterImpl;
         matchingList = new ArrayList<>();
+        searchBlockHandler = new Handler();
+    }
+
+    private Runnable turnSearchOffRunnable = new Runnable() {
+        @Override
+        public void run() {
+            Timber.d("Search block turn off by runnable");
+            presenterImpl.turnSearchBlockOff();
+        }
+    };
+
+    public void manageSearchBlockRunnable(int delay){
+        searchBlockHandler.removeCallbacks(turnSearchOffRunnable);
+        searchBlockHandler.postDelayed(turnSearchOffRunnable, delay);
     }
 
     public void clearResults(){

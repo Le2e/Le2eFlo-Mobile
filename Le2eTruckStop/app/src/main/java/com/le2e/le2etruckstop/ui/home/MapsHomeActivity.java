@@ -5,14 +5,19 @@ import android.Manifest;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.ActivityCompat;
+import android.support.v7.app.AlertDialog;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -24,9 +29,15 @@ import android.widget.Toast;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.PendingResult;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.LocationSettingsResult;
+import com.google.android.gms.location.LocationSettingsStates;
+import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -74,9 +85,14 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     @BindView(R.id.search_btn)
     Button btnSearchStart;
 
+    private final int SEARCH_BLOCK_DELAY = 30000;
+    private final int API_REQUEST_DELAY = 500;
+
     private GoogleMap mMap;
     private GoogleApiClient googleApiClient;
     private LocationRequest locationRequest;
+    LocationManager locationManager;
+    PendingResult<LocationSettingsResult> result;
     private Marker currentLocMarker;
     private LatLng currentLoc;
 
@@ -107,9 +123,16 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
             setupFabs();
             initMap();
             setupSlide();
+            //locationSettingsCheck();
         } else {
             setContentView(R.layout.activity_maps_home_disabled);
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        isLocationEnabled();
     }
 
     @Override
@@ -119,6 +142,59 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     }
 
     // ******************* MISC ********************
+
+    public void isLocationEnabled() {
+        locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
+        boolean gps_enabled = false;
+
+        try {
+            gps_enabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
+        } catch (Exception e) {
+            Timber.e(e, "Request to check gps capability failed");
+        }
+
+        if (!gps_enabled) {
+            alertUserEnabledLocationServices();
+        }
+
+        locationManager = null;
+    }
+
+    private void alertUserEnabledLocationServices() {
+        new AlertDialog.Builder(this).setIcon(
+                android.R.drawable.ic_dialog_alert)
+                .setTitle("Location Services Disabled")
+                .setMessage("In order to access all the features, you must enable Location Services.")
+                .setPositiveButton("Enable Location Services", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void locationSettingsCheck() {
+        result.setResultCallback(new ResultCallback<LocationSettingsResult>() {
+            @Override
+            public void onResult(@NonNull LocationSettingsResult locationSettingsResult) {
+                final Status status = locationSettingsResult.getStatus();
+                final LocationSettingsStates states = locationSettingsResult.getLocationSettingsStates();
+                switch (status.getStatusCode()) {
+                    case LocationSettingsStatusCodes.SUCCESS:
+                        // proceed
+                        break;
+                    case LocationSettingsStatusCodes.RESOLUTION_REQUIRED:
+                        // not met but available - request user to turn them on
+                        break;
+                    case LocationSettingsStatusCodes.SETTINGS_CHANGE_UNAVAILABLE:
+                        // device incapable of meeting request - do nothing
+                        break;
+                }
+            }
+        });
+    }
 
     private void setupSlide() {
         btnSearchStart.setOnClickListener(new View.OnClickListener() {
@@ -138,7 +214,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
                 // determine tracking mode operation
                 // --- if tracking
                 //      - maintain isSearching block on updates
-                if(isTrackingEnabled){
+                if (isTrackingEnabled) {
                     isSearching = true;
                 }
             }
@@ -152,7 +228,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
 
             @Override
             public void onPanelStateChanged(View panel, SlidingUpPanelLayout.PanelState previousState, SlidingUpPanelLayout.PanelState newState) {
-                if(newState == SlidingUpPanelLayout.PanelState.EXPANDED) {
+                if (newState == SlidingUpPanelLayout.PanelState.EXPANDED) {
                     isSearching = true;
                     // cancel all runnables happening
                     Timber.d("Killed runnables");
@@ -160,8 +236,9 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
                     presenter.killTrackingMode();
                 }
 
-                if(newState == SlidingUpPanelLayout.PanelState.COLLAPSED) {
+                if (newState == SlidingUpPanelLayout.PanelState.COLLAPSED) {
                     dismissKeyboard();
+                    startTimerToClearSearchBlock();
                 }
 
                 Timber.d("Panel: %s", newState);
@@ -205,9 +282,9 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         mapFragment.getMapAsync(this);
     }
 
-    private void dismissKeyboard(){
-        if(getCurrentFocus() != null){
-            InputMethodManager imm = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
+    private void dismissKeyboard() {
+        if (getCurrentFocus() != null) {
+            InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
             imm.hideSoftInputFromWindow(getCurrentFocus().getWindowToken(), 0);
         }
     }
@@ -258,6 +335,10 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         locationRequest.setInterval(5000);
         locationRequest.setFastestInterval(5000);
 
+        // LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder()
+        //        .addLocationRequest(locationRequest);
+        // result = LocationServices.SettingsApi.checkLocationSettings(googleApiClient, builder.build());
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                 // TODO: Consider calling
@@ -288,7 +369,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         if (location != null) {
             currentLoc = new LatLng(location.getLatitude(), location.getLongitude());
 
-            if(isMapFirstLoad){
+            if (isMapFirstLoad) {
                 moveToCurrentLoc(currentLoc);
                 isMapFirstLoad = false;
             }
@@ -344,7 +425,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     @Override
     public void onCameraIdle() {
         // Prevents api call upon first load before the map is setup and currentLocation has been found.
-        if(!isMapFirstLoad) {
+        if (!isMapFirstLoad) {
 
             // Prevents api calls / tracking movement while search window is open or after it
             //      has been closed for a specified duration.
@@ -366,12 +447,12 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
 
                             // Spawn runnable when user slides screen to recenter camera after
                             //      brief duration.
-                            presenter.determineUserInteraction(5000);
+                            presenter.turnTrackingOnByDelay(5000);
 
                             // Make api call to add points to map as user scrolls, use true param
                             //      to prevent marker deletion.
                             presenter.delayedStationRequest(
-                                    1000,
+                                    API_REQUEST_DELAY,
                                     "100",
                                     bounds.getCenter().latitude,
                                     bounds.getCenter().longitude,
@@ -382,7 +463,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
                             //      and other optimizations can be made in the future to allow
                             //      a wider view.
                             presenter.delayedStationRequest(
-                                    1000,
+                                    API_REQUEST_DELAY,
                                     "100",
                                     bounds.getCenter().latitude,
                                     bounds.getCenter().longitude,
@@ -402,7 +483,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         // Delay tracking mode restart by specific amount
         if (isTrackingEnabled) {
             Timber.d("delayed by clicking dialog");
-            presenter.determineUserInteraction(15000);
+            presenter.turnTrackingOnByDelay(15000);
         }
 
         // set popup blocker to prevent post pop camera movement / api calls
@@ -436,11 +517,11 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     public void turnTrackingOn() {
         Timber.d("tracking unsuspended");
 
-        if(isSearching)
+        if (isSearching)
             Timber.d("search block cleared");
 
         isTrackingSuspended = false;
-        isSearching = false;
+        turnSearchingOff();
     }
 
     @Override
@@ -453,12 +534,23 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     public void printResults(String message) {
         clearSearchInputs();
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
-        Timber.d("***** request delay started! ******");
-        presenter.determineUserInteraction(30000);
-        presenter.delayedStationRequest(30000, "100", currentLoc.latitude, currentLoc.longitude, false);
+        startTimerToClearSearchBlock();
     }
 
-    private void clearSearchInputs(){
+    private void startTimerToClearSearchBlock(){
+        Timber.d("***** request delay started! ******");
+        if (isTrackingEnabled)
+            presenter.turnTrackingOnByDelay(SEARCH_BLOCK_DELAY);
+
+        presenter.turnSearchBlockOffByDelay(SEARCH_BLOCK_DELAY);
+        presenter.delayedStationRequest(SEARCH_BLOCK_DELAY, "100", currentLoc.latitude, currentLoc.longitude, false);
+    }
+
+    private void turnSearchingOff(){
+        isSearching = false;
+    }
+
+    private void clearSearchInputs() {
         etStopName.getText().clear();
         etCityName.getText().clear();
         etStateName.getText().clear();

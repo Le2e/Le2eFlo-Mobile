@@ -10,4 +10,5 @@ import java.util.HashMap;
 public interface SearchImpl {
     HashMap<Marker, TruckStop> getMarkerMap();
     void deliverSearchResults(ArrayList<TruckStop> results);
+    void turnSearchBlockOff();
 }

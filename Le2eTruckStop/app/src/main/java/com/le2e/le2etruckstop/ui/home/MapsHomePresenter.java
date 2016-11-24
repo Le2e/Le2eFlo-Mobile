@@ -86,6 +86,17 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
         mapManager.getMarkersMap().size();
     }
 
+    @Override
+    public void turnSearchBlockOff() {
+        // call view to turn isSearching to false
+        if(isViewAttached())
+            getView().turnTrackingOn();
+    }
+
+    void turnSearchBlockOffByDelay(int delay){
+        searchManager.manageSearchBlockRunnable(delay);
+    }
+
     // **********************************************************************************
     // ****************************** MAP MANAGER METHODS *******************************
     // **********************************************************************************
@@ -124,7 +135,7 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
     // ***************************** TRACKING MODE METHODS ******************************
     // **********************************************************************************
 
-    void determineUserInteraction(int delay) {
+    void turnTrackingOnByDelay(int delay) {
         trackingManager.manageTrackingRunnable(delay);
     }
 
