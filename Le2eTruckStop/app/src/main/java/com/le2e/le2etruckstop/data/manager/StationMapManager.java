@@ -82,12 +82,6 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
         stationSet.clear();
     }
 
-    // *****************************************************************************************
-    // ************************************** MVP TEST *****************************************
-    // *****************************************************************************************
-
-    // ***** MAP SETUP *****
-
     public void setupLocationServices(GoogleApiClient client, GoogleMap googleMap, WeakReference<Activity> activityRef, PopupInfoImpl popupInfoPresenter) {
         this.googleApiClient = client;
         this.googleMap = googleMap;
@@ -123,8 +117,6 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
         googleMap.setOnCameraIdleListener(this);
         googleMap.setOnMarkerClickListener(this);
     }
-
-    // ***** Map Event Listeners *****
 
     @Override
     public void onLocationChanged(Location location) {
@@ -216,8 +208,6 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
         infoPop = true;
         return false;
     }
-
-    // ***** MAP UTILITIES *****
 
     public void moveToCurrentLoc() {
         if (currentLoc != null && googleMap != null) {

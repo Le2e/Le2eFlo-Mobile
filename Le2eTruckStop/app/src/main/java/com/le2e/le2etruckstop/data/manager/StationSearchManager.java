@@ -34,12 +34,12 @@ public class StationSearchManager {
         }
     };
 
-    public void manageSearchBlockRunnable(int delay){
+    public void manageSearchBlockRunnable(int delay) {
         searchBlockHandler.removeCallbacks(turnSearchOffRunnable);
         searchBlockHandler.postDelayed(turnSearchOffRunnable, delay);
     }
 
-    public void clearResults(){
+    public void clearResults() {
         matchingList.clear();
     }
 

@@ -56,21 +56,17 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
         if (truckStationSub != null && !truckStationSub.isUnsubscribed())
             truckStationSub.unsubscribe();
 
-        if(mapTypeSub != null && !mapTypeSub.isUnsubscribed())
+        if (mapTypeSub != null && !mapTypeSub.isUnsubscribed())
             mapTypeSub.unsubscribe();
 
-        if(trackingStateSub != null && !trackingStateSub.isUnsubscribed())
+        if (trackingStateSub != null && !trackingStateSub.isUnsubscribed())
             trackingStateSub.unsubscribe();
 
         super.detachView();
     }
 
-    // **********************************************************************************
-    // **************************** SEARCH MANAGER METHODS ******************************
-    // **********************************************************************************
-
-    void startTimerToClearSearchBlock(){
-        if(getIsTrackingEnabled())
+    void startTimerToClearSearchBlock() {
+        if (getIsTrackingEnabled())
             turnTrackingOnByDelay(mapManager.getSearchDelay());
 
         turnSearchBlockOffByDelay(mapManager.getSearchDelay());
@@ -101,7 +97,7 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
 
             mapManager.clearMapMarkers();
 
-            for (TruckStop truckStop : results){
+            for (TruckStop truckStop : results) {
                 mapManager.addMarkerToMapView(truckStop);
             }
         }
@@ -115,13 +111,9 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
         mapManager.turnTrackingOn();
     }
 
-    private void turnSearchBlockOffByDelay(int delay){
+    private void turnSearchBlockOffByDelay(int delay) {
         searchManager.manageSearchBlockRunnable(delay);
     }
-
-    // **********************************************************************************
-    // ****************************** MAP MANAGER METHODS *******************************
-    // **********************************************************************************
 
     @Override
     public TruckStop getStopInfoFromMarker(Marker marker) {
@@ -133,29 +125,25 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
         return mapManager.getCurrentLoc();
     }
 
-    void moveToCurrentLocation(){
+    void moveToCurrentLocation() {
         mapManager.moveToCurrentLoc();
     }
 
-    void setMapType(int mapType){
+    void setMapType(int mapType) {
         mapManager.setMapType(mapType);
     }
 
-    boolean getIsSatellite(){
+    boolean getIsSatellite() {
         return mapManager.getIsSatellite();
     }
 
-    boolean getIsTrackingEnabled(){
+    boolean getIsTrackingEnabled() {
         return mapManager.getIsTrackingEnabled();
     }
 
-    void setIsSearching(boolean isSearching){
+    void setIsSearching(boolean isSearching) {
         mapManager.setIsSearching(isSearching);
     }
-
-    // **********************************************************************************
-    // **************************** STATION REQUEST METHODS *****************************
-    // **********************************************************************************
 
     @Override
     public void delayedStationRequest(int delay, String radius, double lat, double lng, boolean saveOldMarkers) {
@@ -167,13 +155,9 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
         getTruckStationsByLocation(radius, lat, lng);
     }
 
-    void killRequestRunnable(){
+    void killRequestRunnable() {
         stationRequestManager.stopRequestRunnable();
     }
-
-    // **********************************************************************************
-    // ***************************** TRACKING MODE METHODS ******************************
-    // **********************************************************************************
 
     @Override
     public void turnTrackingOnByDelay(int delay) {
@@ -189,13 +173,9 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
         mapManager.turnTrackingOn();
     }
 
-    void setTrackingState(boolean isTracking){
+    void setTrackingState(boolean isTracking) {
         mapManager.setTrackingEnabledState(isTracking);
     }
-
-    // **********************************************************************************
-    // ****************************** SUBSCRIPTION METHODS ******************************
-    // **********************************************************************************
 
     private void getTruckStationsByLocation(String radius, double lat, double lng) {
         truckStationSub = dataManager.getStationsFromApi(radius, lat, lng)
@@ -242,7 +222,7 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
     }
 
     @Override
-    public void getSavedMapType(){
+    public void getSavedMapType() {
         Timber.d("PERSIST - Map type requested from shared pref");
         mapTypeSub = dataManager.getMapTypeFromSharedPref()
                 .subscribeOn(Schedulers.io())
@@ -257,7 +237,7 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
                     public void onError(Throwable e) {
                         Timber.e(e, "Error getting map type from shared preferences");
 
-                        if(isViewAttached())
+                        if (isViewAttached())
                             getView().onError(e);
                     }
 
@@ -269,11 +249,11 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
     }
 
     @Override
-    public void saveMapTypeToSharedPref(int mapType){
+    public void saveMapTypeToSharedPref(int mapType) {
         dataManager.saveMapType(mapType);
     }
 
-    void getSavedTrackingState(){
+    void getSavedTrackingState() {
         trackingStateSub = dataManager.getTrackingStateFromSharedPref()
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
@@ -287,7 +267,7 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
                     public void onError(Throwable e) {
                         Timber.e(e, "Error getting tracking state from shared preferences");
 
-                        if(isViewAttached())
+                        if (isViewAttached())
                             getView().onError(e);
                     }
 
@@ -302,15 +282,11 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
                 });
     }
 
-    void saveTrackingState(boolean isTracking){
+    void saveTrackingState(boolean isTracking) {
         dataManager.saveTrackingState(isTracking);
     }
 
-    // *****************************************************************************************
-    // ************************************** MVP TEST *****************************************
-    // *****************************************************************************************
-
-    void initLocationServices(GoogleApiClient client, GoogleMap map, WeakReference<Activity> weakRef){
+    void initLocationServices(GoogleApiClient client, GoogleMap map, WeakReference<Activity> weakRef) {
         mapManager.setupLocationServices(client, map, weakRef, this);
     }
 }
