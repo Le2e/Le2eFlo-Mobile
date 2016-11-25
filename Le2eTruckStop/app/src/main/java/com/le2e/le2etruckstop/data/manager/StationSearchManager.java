@@ -150,7 +150,7 @@ public class StationSearchManager {
     }
 
     private void deliverSearchResults() {
-        if (matchingList != null && !matchingList.isEmpty()) {
+        if (matchingList != null) {
             presenterImpl.deliverSearchResults(matchingList);
         }
     }
