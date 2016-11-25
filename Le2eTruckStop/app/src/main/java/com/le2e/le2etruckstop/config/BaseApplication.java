@@ -32,7 +32,7 @@ public class BaseApplication extends Application {
         }
 
         appComponent = DaggerAppComponent.builder()
-                .dataModule(new DataModule())
+                .dataModule(new DataModule(this))
                 .stationServiceModule(new StationServiceModule())
                 .networkModule(new NetworkModule())
                 .build();

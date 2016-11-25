@@ -36,6 +36,8 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
     private StationRequestManager stationRequestManager;
 
     private Subscription truckStationSub;
+    private Subscription mapTypeSub;
+    private Subscription trackingStateSub;
 
     MapsHomePresenter(DataManager dataManager) {
         this.dataManager = dataManager;
@@ -49,6 +51,9 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
     public void detachView() {
         if (truckStationSub != null && !truckStationSub.isUnsubscribed())
             truckStationSub.unsubscribe();
+
+        if(mapTypeSub != null && !mapTypeSub.isUnsubscribed())
+            mapTypeSub.unsubscribe();
 
         super.detachView();
     }
@@ -161,7 +166,7 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
                 .subscribe(new Subscriber<StationsResponse>() {
                     @Override
                     public void onCompleted() {
-
+                        // do nothing
                     }
 
                     @Override
@@ -208,5 +213,66 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
 
         if (isViewAttached())
             getView().addTruckStopToMap(options, truckStop);
+    }
+
+    void getSavedMapType(){
+        Timber.d("PERSIST - Map type requested from shared pref");
+        mapTypeSub = dataManager.getMapTypeFromSharedPref()
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Subscriber<Integer>() {
+                    @Override
+                    public void onCompleted() {
+                        // do nothing
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        Timber.e(e, "Error getting map type from shared preferences");
+
+                        if(isViewAttached())
+                            getView().onError(e);
+                    }
+
+                    @Override
+                    public void onNext(Integer mapType) {
+                        if (isViewAttached())
+                            getView().returnMapType(mapType);
+                    }
+                });
+    }
+
+    void saveMapTypeToSharedPref(int mapType){
+        dataManager.saveMapType(mapType);
+    }
+
+    void getSavedTrackingState(){
+        trackingStateSub = dataManager.getTrackingStateFromSharedPref()
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Subscriber<Boolean>() {
+                    @Override
+                    public void onCompleted() {
+                        // do nothing
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        Timber.e(e, "Error getting tracking state from shared preferences");
+
+                        if(isViewAttached())
+                            getView().onError(e);
+                    }
+
+                    @Override
+                    public void onNext(Boolean isTracking) {
+                        if (isViewAttached())
+                            getView().returnTrackingState(isTracking);
+                    }
+                });
+    }
+
+    void saveTrackingState(boolean isTracking){
+        dataManager.saveTrackingState(isTracking);
     }
 }

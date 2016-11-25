@@ -11,4 +11,6 @@ public interface MapsHomeView extends MvpView {
     void turnTrackingOn();
     void onError(Throwable e);
     void printResults(String num);
+    void returnMapType(int mapType);
+    void returnTrackingState(boolean isTracking);
 }
