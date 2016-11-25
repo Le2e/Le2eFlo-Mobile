@@ -209,7 +209,7 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
         double lng = Double.parseDouble(truckStop.getLng());
         options.position(new LatLng(lat, lng));
         options.title(truckStop.getName());
-        options.icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_store_mall_directory_black_36dp));
+        options.icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_store_red_36dp));
 
         if (isViewAttached())
             getView().addTruckStopToMap(options, truckStop);

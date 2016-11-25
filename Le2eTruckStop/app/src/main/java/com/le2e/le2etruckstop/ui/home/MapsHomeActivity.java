@@ -78,6 +78,10 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     EditText etZipcode;
     @BindView(R.id.search_btn)
     Button btnSearchStart;
+    @BindView(R.id.fab)
+    FloatingActionButton fabCurrentLoc;
+    @BindView(R.id.track_fab)
+    FloatingActionButton fabTrack;
 
     private final int SEARCH_BLOCK_DELAY = 30000;
     private final int API_REQUEST_DELAY = 500;
@@ -219,8 +223,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     }
 
     private void setupFabs() {
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
+        fabCurrentLoc.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if (currentLoc != null)
@@ -228,8 +231,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
             }
         });
 
-        FloatingActionButton fab1 = (FloatingActionButton) findViewById(R.id.track_fab);
-        fab1.setOnClickListener(new View.OnClickListener() {
+        fabTrack.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if (mMap != null) {
@@ -239,7 +241,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
                         presenter.killTrackingMode();
 
                     // update tracking state then save tracking state
-                    isTrackingEnabled = !isTrackingEnabled;
+                    setTrackingState(!isTrackingEnabled);
                     saveTrackingState(isTrackingEnabled);
                 }
             }
@@ -270,7 +272,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     private void setCurrentLocationMarker(LatLng loc) {
         MarkerOptions options = new MarkerOptions()
                 .title("You")
-                .icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_local_shipping_black_36dp))
+                .icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_truck_blue_36dp))
                 .position(loc)
                 .snippet("Foten \n Next line \n Getting long and stuff!");
 
@@ -552,6 +554,12 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     private void setTrackingState(boolean isTracking) {
         Timber.d("PERSIST - Tracking state set to: %s", isTracking);
         isTrackingEnabled = isTracking;
+
+        // load appropriate icon for state
+        if (isTracking)
+            fabTrack.setImageResource(R.drawable.ic_navigation_red_48dp);
+        else
+            fabTrack.setImageResource(R.drawable.ic_navigation_white_48dp);
     }
 
     private void saveTrackingState(boolean isTracking) {
