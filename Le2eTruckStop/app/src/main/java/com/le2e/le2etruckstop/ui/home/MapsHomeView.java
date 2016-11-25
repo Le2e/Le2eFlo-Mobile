@@ -1,16 +1,10 @@
 package com.le2e.le2etruckstop.ui.home;
 
 
-import com.google.android.gms.maps.model.MarkerOptions;
-import com.le2e.le2etruckstop.data.remote.response.TruckStop;
 import com.le2e.le2etruckstop.ui.base.mvp.core.MvpView;
 
-public interface MapsHomeView extends MvpView {
-    void addTruckStopToMap(MarkerOptions options, TruckStop details);
-    void clearMarkers();
-    void turnTrackingOn();
+interface MapsHomeView extends MvpView {
     void onError(Throwable e);
     void printResults(String num);
-    void returnMapType(int mapType);
-    void returnTrackingState(boolean isTracking);
+    void toggleTrackingIcon(boolean isTracking);
 }

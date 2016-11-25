@@ -89,7 +89,7 @@ public class TruckStopPopupAdapter implements GoogleMap.InfoWindowAdapter {
     }
 
     private String calcDistance(String stopLat, String stopLng) {
-        LatLng latLng = activity.getCurrentLocation();
+        LatLng latLng = presenterImpl.getCurrentLocation();
         double sLat = Double.parseDouble(stopLat);
         double sLng = Double.parseDouble(stopLng);
 
