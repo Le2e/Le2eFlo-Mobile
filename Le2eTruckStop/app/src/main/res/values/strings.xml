@@ -6,4 +6,13 @@
     <string name="et_search_state">State Name</string>
     <string name="et_search_zip">Zip code</string>
     <string name="btn_search_text">Search!</string>
+    <string name="error_api_connection">Error receiving truck stop information, check network connection.</string>
+    <string name="error_map_state">An unexpected error has occurred. Map State not found.</string>
+    <string name="error_tracking_state">An unexpected error has occurred. Tracking State not found.</string>
+    <string name="error_title">Error</string>
+    <string name="btn_ok">OK</string>
+    <string name="error_loc_serv_title">Location Services Disabled</string>
+    <string name="error_loc_serv_msg">In order to access all the features, you must enable Location Services.</string>
+    <string name="error_loc_ser_positive">Enable Location Services</string>
+    <string name="error_loc_ser_negative">Cancel</string>
 </resources>

@@ -29,7 +29,7 @@ public class DataManager {
         editor.apply();
     }
 
-    public void saveTrackingState(boolean isTracking){
+    public void saveTrackingState(boolean isTracking) {
         editor = sharedPreferences.edit();
         editor.putBoolean(TRACKING_STATE_TAG, isTracking);
         editor.apply();
@@ -53,7 +53,7 @@ public class DataManager {
         });
     }
 
-    public Observable<Boolean> getTrackingStateFromSharedPref(){
+    public Observable<Boolean> getTrackingStateFromSharedPref() {
         return Observable.defer(new Func0<Observable<Boolean>>() {
             @Override
             public Observable<Boolean> call() {

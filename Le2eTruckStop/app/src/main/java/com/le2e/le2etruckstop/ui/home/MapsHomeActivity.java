@@ -1,22 +1,17 @@
 package com.le2e.le2etruckstop.ui.home;
 
 
-import android.Manifest;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.location.Location;
 import android.location.LocationManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.design.widget.FloatingActionButton;
-import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AlertDialog;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -29,25 +24,14 @@ import android.widget.Toast;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.location.LocationListener;
-import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.maps.CameraUpdate;
-import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapFragment;
 import com.google.android.gms.maps.OnMapReadyCallback;
-import com.google.android.gms.maps.model.BitmapDescriptorFactory;
-import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.LatLngBounds;
-import com.google.android.gms.maps.model.Marker;
-import com.google.android.gms.maps.model.MarkerOptions;
 import com.le2e.le2etruckstop.R;
 import com.le2e.le2etruckstop.config.BaseApplication;
 import com.le2e.le2etruckstop.data.manager.DataManager;
-import com.le2e.le2etruckstop.data.remote.response.TruckStop;
 import com.le2e.le2etruckstop.ui.base.mvp.MvpBaseActivity;
-import com.le2e.le2etruckstop.ui.common.TruckStopPopupAdapter;
 import com.sothree.slidinguppanel.SlidingUpPanelLayout;
 
 import java.lang.ref.WeakReference;
@@ -59,9 +43,8 @@ import butterknife.ButterKnife;
 import timber.log.Timber;
 
 public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePresenter>
-        implements OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks,
-        GoogleApiClient.OnConnectionFailedListener, LocationListener, MapsHomeView,
-        GoogleMap.OnCameraIdleListener, GoogleMap.OnMarkerClickListener {
+        implements OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks, MapsHomeView,
+        GoogleApiClient.OnConnectionFailedListener {
 
     @Inject
     DataManager dataManager;
@@ -83,36 +66,20 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     @BindView(R.id.track_fab)
     FloatingActionButton fabTrack;
 
-    private final int SEARCH_BLOCK_DELAY = 30000;
-    private final int API_REQUEST_DELAY = 500;
-
     private GoogleMap mMap;
     private GoogleApiClient googleApiClient;
-    private LocationRequest locationRequest;
     LocationManager locationManager;
-    private Marker currentLocMarker;
-    private LatLng currentLoc;
 
-    private TruckStopPopupAdapter popupAdapter;
-
-    private float zoomLevel = 7.0f;
-    private boolean infoPop = false;
-    private boolean isMapFirstLoad = false;
-    private boolean isSatellite = false;
-    private boolean isTrackingEnabled = false;
-    private boolean isTrackingSuspended = false;
-    private boolean isSearching = false;
-
-    // ****************************************************************************
-    // ********************** ACTIVITY LIFECYCLE OVERRIDES ************************
-    // ****************************************************************************
+    @NonNull
+    @Override
+    public MapsHomePresenter createPresenter() {
+        return new MapsHomePresenter(dataManager);
+    }
 
     @Override
     public void onCreate(Bundle bundle) {
         BaseApplication.get().getAppComponent().inject(this);
         super.onCreate(bundle);
-
-        popupAdapter = new TruckStopPopupAdapter(new WeakReference<Activity>(this), presenter);
 
         if (googleServicesAvailable()) {
             setContentView(R.layout.activity_maps_home);
@@ -138,40 +105,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         super.onDestroy();
     }
 
-    // ******************* MISC ********************
-
-    public void isLocationEnabled() {
-        locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
-        boolean gps_enabled = false;
-
-        try {
-            gps_enabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
-        } catch (Exception e) {
-            Timber.e(e, "Request to check gps capability failed");
-        }
-
-        if (!gps_enabled) {
-            alertUserEnabledLocationServices();
-        }
-
-        locationManager = null;
-    }
-
-    private void alertUserEnabledLocationServices() {
-        new AlertDialog.Builder(this).setIcon(
-                android.R.drawable.ic_dialog_alert)
-                .setTitle("Location Services Disabled")
-                .setMessage("In order to access all the features, you must enable Location Services.")
-                .setPositiveButton("Enable Location Services", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
-                    }
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
-    }
-
+    // Sets up SlidingUpPanel event listeners and logic
     private void setupSlide() {
         btnSearchStart.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -190,8 +124,8 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
                 // determine tracking mode operation
                 // --- if tracking
                 //      - maintain isSearching block on updates
-                if (isTrackingEnabled) {
-                    isSearching = true;
+                if (presenter.getIsTrackingEnabled()) {
+                    presenter.setIsSearching(true);
                 }
             }
         });
@@ -204,82 +138,158 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
 
             @Override
             public void onPanelStateChanged(View panel, SlidingUpPanelLayout.PanelState previousState, SlidingUpPanelLayout.PanelState newState) {
+                Timber.d("Panel: %s", newState);
+
+                // set searching block - cancel active runnables while EXPANDED
                 if (newState == SlidingUpPanelLayout.PanelState.EXPANDED) {
-                    isSearching = true;
-                    // cancel all runnables happening
-                    Timber.d("Killed runnables");
+                    presenter.setIsSearching(true);
                     presenter.killRequestRunnable();
                     presenter.killTrackingMode();
                 }
 
+                // hidekeyboard if visible, start timer to cancel search block
                 if (newState == SlidingUpPanelLayout.PanelState.COLLAPSED) {
                     dismissKeyboard();
-                    startTimerToClearSearchBlock();
+                    presenter.startTimerToClearSearchBlock();
                 }
-
-                Timber.d("Panel: %s", newState);
             }
         });
     }
 
+    // Sets up FAB click events
     private void setupFabs() {
         fabCurrentLoc.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (currentLoc != null)
-                    moveToCurrentLoc(currentLoc);
+                presenter.moveToCurrentLocation();
             }
         });
 
         fabTrack.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (mMap != null) {
+                boolean isTracking = presenter.getIsTrackingEnabled();
 
-                    // cancel tracking runnables when tracking is toggled off
-                    if (isTrackingEnabled)
-                        presenter.killTrackingMode();
+                // cancel tracking runnables when tracking is toggled off
+                if (isTracking)
+                    presenter.killTrackingMode();
 
-                    // update tracking state then save tracking state
-                    setTrackingState(!isTrackingEnabled);
-                    saveTrackingState(isTrackingEnabled);
-                }
+                // update tracking state then save tracking state
+                presenter.setTrackingState(!isTracking);
+                presenter.saveTrackingState(isTracking);
             }
         });
     }
 
+    // Toolbar mean creation
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_main, menu);
+        return true;
+    }
+
+    // Toggle satellite and normal mode
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getTitle().equals(getResources().getString(R.string.menu_item_satellite_toggle_title))) {
+            int mapType;
+
+            // If isSatellite - swap to normal and update maptype
+            if (presenter.getIsSatellite())
+                mapType = GoogleMap.MAP_TYPE_NORMAL;
+            else
+                mapType = GoogleMap.MAP_TYPE_SATELLITE;
+
+            presenter.setMapType(mapType);
+        }
+        return true;
+    }
+
+    // GoogleApiClient connect success - starts mapManager initialization
+    @Override
+    public void onConnected(@Nullable Bundle bundle) {
+        presenter.initLocationServices(googleApiClient, mMap, new WeakReference<Activity>(this));
+    }
+
+    // Fires when googleApiClient connection is suspended
+    @Override
+    public void onConnectionSuspended(int i) {
+        Timber.w("Google APIs connection suspended.");
+    }
+
+    // Fires when googleApiclient failes to connect
+    @Override
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+        Timber.e("Google APIs connection failed with code: %d", connectionResult.getErrorCode());
+    }
+
+    // Sets up the map fragment view
     private void initMap() {
         MapFragment mapFragment = (MapFragment) getFragmentManager().findFragmentById(R.id.map_fragment);
         mapFragment.getMapAsync(this);
     }
 
-    private void dismissKeyboard() {
-        if (getCurrentFocus() != null) {
-            InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-            imm.hideSoftInputFromWindow(getCurrentFocus().getWindowToken(), 0);
+    // Called when async setup in initMap() finishes
+    // - gets reference to map fragment
+    // - connects googleApiClient
+    @Override
+    public void onMapReady(GoogleMap googleMap) {
+        if (googleMap != null) {
+            mMap = googleMap;
+
+            googleApiClient = new GoogleApiClient.Builder(this)
+                    .addApi(LocationServices.API)
+                    .addConnectionCallbacks(this)
+                    .addOnConnectionFailedListener(this)
+                    .build();
+
+            googleApiClient.connect();
         }
     }
 
-    private void moveToCurrentLoc(LatLng latLng) {
-        CameraUpdate update = CameraUpdateFactory.newLatLngZoom(latLng, zoomLevel);
-        mMap.animateCamera(update);
+    // Error handler for api calls via observables
+    @Override
+    public void onApiError(Throwable e) {
+        showErrorDialog(getResources().getString(R.string.error_title), getResources().getString(R.string.error_api_connection));
     }
 
-    public LatLng getCurrentLocation() {
-        return currentLoc;
+    @Override
+    public void onMapStateError(Throwable e) {
+        showErrorDialog(getResources().getString(R.string.error_title), getResources().getString(R.string.error_map_state));
     }
 
-    private void setCurrentLocationMarker(LatLng loc) {
-        MarkerOptions options = new MarkerOptions()
-                .title("You")
-                .icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_truck_blue_36dp))
-                .position(loc)
-                .snippet("Foten \n Next line \n Getting long and stuff!");
-
-        currentLocMarker = mMap.addMarker(options);
+    @Override
+    public void onTrackingStateError(Throwable e) {
+        showErrorDialog(getResources().getString(R.string.error_title), getResources().getString(R.string.error_tracking_state));
     }
 
-    // check to see if google services is available
+    private void showErrorDialog(String title, String message){
+        new AlertDialog.Builder(this)
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .setTitle(title)
+                .setMessage(message)
+                .setNegativeButton(getResources().getString(R.string.btn_ok), null)
+                .show();
+    }
+
+    // Display toast, clear inputs, start timer for delay on return to tracking
+    @Override
+    public void printResults(String message) {
+        clearSearchInputs();
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+        presenter.startTimerToClearSearchBlock();
+    }
+
+    // Toggles fab icon to reflect tracking mode state
+    @Override
+    public void toggleTrackingIcon(boolean isTracking) {
+        if (isTracking)
+            fabTrack.setImageResource(R.drawable.ic_navigation_red_48dp);
+        else
+            fabTrack.setImageResource(R.drawable.ic_navigation_white_48dp);
+    }
+
+    // Checks to see if google services is available - offers user option to enable
     public boolean googleServicesAvailable() {
         GoogleApiAvailability apiAvailability = GoogleApiAvailability.getInstance();
         int isAvailable = apiAvailability.isGooglePlayServicesAvailable(this);
@@ -295,240 +305,41 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         return false;
     }
 
-    // ****************************************************************************
-    // ********************** GOOGLE MAPS / API CLIENT IMPL ***********************
-    // ****************************************************************************
+    // Checks to makes location services are enabled - provides user a way to turn them on
+    public void isLocationEnabled() {
+        locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
+        boolean gps_enabled = false;
 
-    @Override
-    public void onConnected(@Nullable Bundle bundle) {
-        locationRequest = LocationRequest.create();
-        locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        locationRequest.setInterval(5000);
-        locationRequest.setFastestInterval(5000);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                // TODO: Consider calling
-                //    ActivityCompat#requestPermissions
-                // here to request the missing permissions, and then overriding
-                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                //                                          int[] grantResults)
-                // to handle the case where the user grants the permission. See the documentation
-                // for ActivityCompat#requestPermissions for more details.
-                return;
-            }
+        try {
+            gps_enabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
+        } catch (Exception e) {
+            Timber.e(e, "Request to check gps capability failed");
         }
-        LocationServices.FusedLocationApi.requestLocationUpdates(googleApiClient, locationRequest, this);
+
+        if (!gps_enabled) {
+            alertUserEnabledLocationServices();
+        }
+
+        locationManager = null;
     }
 
-    @Override
-    public void onConnectionSuspended(int i) {
-        Timber.w("Google APIs connection suspended.");
-    }
-
-    @Override
-    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-        Timber.e("Google APIs connection failed with code: %d", connectionResult.getErrorCode());
-    }
-
-    @Override
-    public void onLocationChanged(Location location) {
-        if (location != null) {
-            currentLoc = new LatLng(location.getLatitude(), location.getLongitude());
-
-            // one time check to set initial view to current location
-            if (isMapFirstLoad) {
-                moveToCurrentLoc(currentLoc);
-                isMapFirstLoad = false;
-                updateCurrentMarker(false);
-            } else {
-                Timber.d("SearchingModeEnabled: %s", isSearching);
-                Timber.d("TrackingModeEnabled: %s", isTrackingEnabled);
-                if (isTrackingEnabled) {
-                    if (!isTrackingSuspended) {
-                        Timber.d("unsuspended move");
-                        updateCurrentMarker(true);
+    // Alert dialog that offers user option to enable location services
+    private void alertUserEnabledLocationServices() {
+        new AlertDialog.Builder(this).setIcon(
+                android.R.drawable.ic_dialog_alert)
+                .setTitle(getResources().getString(R.string.error_loc_serv_title))
+                .setMessage(getResources().getString(R.string.error_loc_serv_msg))
+                .setPositiveButton(getResources().getString(R.string.error_loc_ser_positive), new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
                     }
-                } else {
-                    Timber.d("non tracked current loc update");
-                    updateCurrentMarker(false);
-                }
-            }
-        }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
-    private void updateCurrentMarker(boolean moveCamera) {
-        // set current location marker
-        if (currentLocMarker != null) {
-            if (!currentLocMarker.isInfoWindowShown())
-                currentLocMarker.remove();
-        }
-        setCurrentLocationMarker(currentLoc);
-        if (moveCamera) {
-            moveToCurrentLoc(currentLoc);
-        }
-    }
-
-    @Override
-    public void onMapReady(GoogleMap googleMap) {
-        mMap = googleMap;
-
-        if (mMap != null) {
-            presenter.getSavedMapType();
-            mMap.setInfoWindowAdapter(popupAdapter);
-
-            mMap.setOnCameraIdleListener(this);
-            mMap.setOnMarkerClickListener(this);
-
-            googleApiClient = new GoogleApiClient.Builder(this)
-                    .addApi(LocationServices.API)
-                    .addConnectionCallbacks(this)
-                    .addOnConnectionFailedListener(this)
-                    .build();
-
-            googleApiClient.connect();
-
-            isMapFirstLoad = true;
-        }
-    }
-
-    @Override
-    public void onCameraIdle() {
-
-        // Prevents api calls / tracking movement while search window is open or after it
-        //      has been closed for a specified duration.
-        if (!isSearching) {
-
-            // Prevents actions when a info window is opened for a marker.
-            if (!infoPop) {
-                if (mMap != null) {
-                    // get bounds for current view of map
-                    LatLngBounds bounds = mMap.getProjection().getVisibleRegion().latLngBounds;
-                    bounds.getCenter();
-
-                    // Tracking logic
-                    if (isTrackingEnabled) {
-                        // Prevent camera recenter w/ isTrackingSuspended
-                        isTrackingSuspended = true;
-
-                        Timber.d("suspended runnable started");
-
-                        // Spawn runnable when user slides screen to recenter camera after
-                        //      brief duration.
-                        presenter.turnTrackingOnByDelay(5000);
-
-                        // Make api call to add points to map as user scrolls, use true param
-                        //      to prevent marker deletion.
-                        presenter.delayedStationRequest(
-                                API_REQUEST_DELAY,
-                                "100",
-                                bounds.getCenter().latitude,
-                                bounds.getCenter().longitude,
-                                true);
-                    } else {
-                        Timber.d("non tracked api call");
-                        // Limiting marker placement by 100 mile for the time being - cluster
-                        //      and other optimizations can be made in the future to allow
-                        //      a wider view.
-                        presenter.delayedStationRequest(
-                                API_REQUEST_DELAY,
-                                "100",
-                                bounds.getCenter().latitude,
-                                bounds.getCenter().longitude,
-                                false);
-                    }
-                }
-            }
-        }
-
-        // clear popup block after its been seen for first time
-        infoPop = false;
-    }
-
-    @Override
-    public boolean onMarkerClick(Marker marker) {
-        // Delay tracking mode restart by specific amount
-        if (isTrackingEnabled) {
-            Timber.d("delayed by clicking dialog");
-            presenter.turnTrackingOnByDelay(15000);
-        }
-
-        // set popup blocker to prevent post pop camera movement / api calls
-        infoPop = true;
-        return false;
-    }
-
-    // ****************************************************************************
-    // ************************* PRESENTER VIEW CALLBACKS *************************
-    // ****************************************************************************
-
-    @Override
-    public void addTruckStopToMap(MarkerOptions options, TruckStop truckStop) {
-        if (mMap != null && options != null) {
-            Marker marker = mMap.addMarker(options);
-            presenter.addMarkerToMapManager(marker, truckStop);
-        }
-    }
-
-    @Override
-    public void clearMarkers() {
-        if (mMap != null) {
-            mMap.clear();
-            setCurrentLocationMarker(currentLoc);
-        }
-
-        presenter.clearMapMarkers();
-    }
-
-    @Override
-    public void turnTrackingOn() {
-        Timber.d("tracking unsuspended");
-
-        if (isSearching)
-            Timber.d("search block cleared");
-
-        isTrackingSuspended = false;
-        turnSearchingOff();
-    }
-
-    @Override
-    public void onError(Throwable e) {
-        // TODO: Handle it
-    }
-
-    // display toast, clear inputs, start timer for delay on return to tracking
-    @Override
-    public void printResults(String message) {
-        clearSearchInputs();
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
-        startTimerToClearSearchBlock();
-    }
-
-    @Override
-    public void returnMapType(int mapType) {
-        Timber.d("PERSIST - Map type returned from shared pref: %s", mapType);
-        setMapType(mapType);
-    }
-
-    @Override
-    public void returnTrackingState(boolean isTracking) {
-        Timber.d("PERSIST - Tracking state returned from shared pref: %s", isTracking);
-        setTrackingState(isTracking);
-    }
-
-    private void startTimerToClearSearchBlock() {
-        Timber.d("***** request delay started! ******");
-        if (isTrackingEnabled)
-            presenter.turnTrackingOnByDelay(SEARCH_BLOCK_DELAY);
-
-        presenter.turnSearchBlockOffByDelay(SEARCH_BLOCK_DELAY);
-        presenter.delayedStationRequest(SEARCH_BLOCK_DELAY, "100", currentLoc.latitude, currentLoc.longitude, false);
-    }
-
-    private void turnSearchingOff() {
-        isSearching = false;
-    }
-
+    // Clears out old search inputs
     private void clearSearchInputs() {
         etStopName.getText().clear();
         etCityName.getText().clear();
@@ -536,71 +347,12 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         etZipcode.getText().clear();
     }
 
-    private void saveMapType(int mapType) {
-        Timber.d("PERSIST - Saving map type to sharedPref: %s", mapType);
-        presenter.saveMapTypeToSharedPref(mapType);
-    }
-
-    private void setMapType(int mapType) {
-        if (mapType == GoogleMap.MAP_TYPE_NORMAL)
-            isSatellite = false;
-        else if (mapType == GoogleMap.MAP_TYPE_SATELLITE)
-            isSatellite = true;
-
-        Timber.d("PERSIST - Map type set to: %s", mapType);
-        mMap.setMapType(mapType);
-    }
-
-    private void setTrackingState(boolean isTracking) {
-        Timber.d("PERSIST - Tracking state set to: %s", isTracking);
-        isTrackingEnabled = isTracking;
-
-        // load appropriate icon for state
-        if (isTracking)
-            fabTrack.setImageResource(R.drawable.ic_navigation_red_48dp);
-        else
-            fabTrack.setImageResource(R.drawable.ic_navigation_white_48dp);
-    }
-
-    private void saveTrackingState(boolean isTracking) {
-        Timber.d("PERSIST - Tracking state saved as: %s", isTracking);
-        presenter.saveTrackingState(isTracking);
-    }
-
-    // ****************************************************************************
-    // *************************** OPTIONS MENU METHODS ***************************
-    // ****************************************************************************
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.menu_main, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getTitle().equals(getResources().getString(R.string.menu_item_satellite_toggle_title))) {
-            if (mMap != null) {
-                int mapType;
-                if (isSatellite)
-                    mapType = GoogleMap.MAP_TYPE_NORMAL;
-                else
-                    mapType = GoogleMap.MAP_TYPE_SATELLITE;
-
-                setMapType(mapType);
-                saveMapType(mapType);
-            }
+    // Hides the soft keyboard if present
+    private void dismissKeyboard() {
+        if (getCurrentFocus() != null) {
+            InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+            imm.hideSoftInputFromWindow(getCurrentFocus().getWindowToken(), 0);
         }
-        return true;
     }
 
-    // ****************************************************************************
-    // **************************** MVP IMPLEMENTATION ****************************
-    // ****************************************************************************
-
-    @NonNull
-    @Override
-    public MapsHomePresenter createPresenter() {
-        return new MapsHomePresenter(dataManager);
-    }
 }

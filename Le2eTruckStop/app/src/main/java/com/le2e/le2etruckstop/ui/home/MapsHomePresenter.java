@@ -1,11 +1,12 @@
 package com.le2e.le2etruckstop.ui.home;
 
 
-import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import android.app.Activity;
+
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
-import com.google.android.gms.maps.model.MarkerOptions;
-import com.le2e.le2etruckstop.R;
 import com.le2e.le2etruckstop.data.manager.DataManager;
 import com.le2e.le2etruckstop.data.manager.StationMapManager;
 import com.le2e.le2etruckstop.data.manager.StationRequestManager;
@@ -14,11 +15,13 @@ import com.le2e.le2etruckstop.data.manager.TrackingModeManager;
 import com.le2e.le2etruckstop.data.remote.response.StationsResponse;
 import com.le2e.le2etruckstop.data.remote.response.TruckStop;
 import com.le2e.le2etruckstop.ui.base.mvp.core.MvpBasePresenter;
-import com.le2e.le2etruckstop.ui.home.impl.PopupInfoImpl;
-import com.le2e.le2etruckstop.ui.home.impl.SearchImpl;
-import com.le2e.le2etruckstop.ui.home.impl.StationRequestImpl;
-import com.le2e.le2etruckstop.ui.home.impl.TrackingImpl;
+import com.le2e.le2etruckstop.ui.home.interfaces.MapManagerImpl;
+import com.le2e.le2etruckstop.ui.home.interfaces.PopupInfoImpl;
+import com.le2e.le2etruckstop.ui.home.interfaces.SearchImpl;
+import com.le2e.le2etruckstop.ui.home.interfaces.StationRequestImpl;
+import com.le2e.le2etruckstop.ui.home.interfaces.TrackingImpl;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -28,7 +31,8 @@ import rx.android.schedulers.AndroidSchedulers;
 import rx.schedulers.Schedulers;
 import timber.log.Timber;
 
-class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements TrackingImpl, StationRequestImpl, PopupInfoImpl, SearchImpl {
+class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements TrackingImpl,
+        StationRequestImpl, PopupInfoImpl, SearchImpl, MapManagerImpl {
     private DataManager dataManager;
     private StationSearchManager searchManager;
     private StationMapManager mapManager;
@@ -41,7 +45,7 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
 
     MapsHomePresenter(DataManager dataManager) {
         this.dataManager = dataManager;
-        mapManager = new StationMapManager();
+        mapManager = new StationMapManager(this);
         searchManager = new StationSearchManager(this);
         trackingManager = new TrackingModeManager(this);
         stationRequestManager = new StationRequestManager(this);
@@ -52,38 +56,35 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
         if (truckStationSub != null && !truckStationSub.isUnsubscribed())
             truckStationSub.unsubscribe();
 
-        if(mapTypeSub != null && !mapTypeSub.isUnsubscribed())
+        if (mapTypeSub != null && !mapTypeSub.isUnsubscribed())
             mapTypeSub.unsubscribe();
+
+        if (trackingStateSub != null && !trackingStateSub.isUnsubscribed())
+            trackingStateSub.unsubscribe();
 
         super.detachView();
     }
 
-    // **********************************************************************************
-    // **************************** SEARCH MANAGER METHODS ******************************
-    // **********************************************************************************
+    // ************************* SEARCH MANAGER METHODS *************************
 
+    // Launches search logic in searchManager
     void performSearch(String name, String city, String state, String zip) {
         searchManager.determineSearchParams(name, city, state, zip);
     }
 
-    @Override
-    public HashMap<Marker, TruckStop> getMarkerMap() {
-        return mapManager.getMarkersMap();
-    }
-
-    // clear the map - put markers on map
+    // Clears current markers off map and displays matches from search for 30 seconds
     @Override
     public void deliverSearchResults(ArrayList<TruckStop> results) {
         Timber.d("Results found: %s", results.size());
 
         if (isViewAttached()) {
-            getView().clearMarkers();
-
             String s = results.size() + " results found";
             getView().printResults(s);
 
-            for (TruckStop truckStop : results){
-                addStationMarkerToMap(truckStop);
+            mapManager.clearMapMarkers();
+
+            for (TruckStop truckStop : results) {
+                mapManager.addMarkerToMapView(truckStop);
             }
         }
 
@@ -91,74 +92,95 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
         mapManager.getMarkersMap().size();
     }
 
+    // Sets the search block for tracking mode
+    void setIsSearching(boolean isSearching) {
+        mapManager.setIsSearching(isSearching);
+    }
+
+    // Handles setting timer to clear search block and resume tracking mode
+    void startTimerToClearSearchBlock() {
+        if (getIsTrackingEnabled())
+            turnTrackingOnByDelay(mapManager.getSearchDelay());
+
+        searchManager.manageSearchBlockRunnable(mapManager.getSearchDelay());
+        delayedStationRequest(mapManager.getSearchDelay(),
+                "100",
+                mapManager.getCurrentLoc().latitude,
+                mapManager.getCurrentLoc().longitude,
+                false);
+    }
+
+    // Clears the search block
     @Override
     public void turnSearchBlockOff() {
-        // call view to turn isSearching to false
-        if(isViewAttached())
-            getView().turnTrackingOn();
+        mapManager.turnTrackingOn();
     }
 
-    void turnSearchBlockOffByDelay(int delay){
-        searchManager.manageSearchBlockRunnable(delay);
+    // ************************* MAP MANAGER METHODS *************************
+
+    // Setup mapManager with needed dependencies
+    void initLocationServices(GoogleApiClient client, GoogleMap map, WeakReference<Activity> weakRef) {
+        mapManager.setupLocationServices(client, map, weakRef, this);
     }
 
-    // **********************************************************************************
-    // ****************************** MAP MANAGER METHODS *******************************
-    // **********************************************************************************
-
-    void clearMapMarkers() {
-        mapManager.clearMapMarkers();
-    }
-
-    void addMarkerToMapManager(Marker marker, TruckStop truckStop) {
-        mapManager.addMarkerToMapManager(marker, truckStop);
-    }
-
+    // Get marker info for selected marker from marker set
     @Override
     public TruckStop getStopInfoFromMarker(Marker marker) {
         return mapManager.getStopInfoFromMarker(marker);
     }
 
-    // **********************************************************************************
-    // **************************** STATION REQUEST METHODS *****************************
-    // **********************************************************************************
+    // Get user's current location
+    @Override
+    public LatLng getCurrentLocation() {
+        return mapManager.getCurrentLoc();
+    }
 
-    void delayedStationRequest(int delay, String radius, double lat, double lng, boolean saveOldMarkers) {
+    // Move camera to user's current location
+    void moveToCurrentLocation() {
+        mapManager.moveToCurrentLoc();
+    }
+
+    // Set the map to the specified type
+    void setMapType(int mapType) {
+        mapManager.setMapType(mapType);
+    }
+
+    // Determine what current map type is
+    boolean getIsSatellite() {
+        return mapManager.getIsSatellite();
+    }
+
+    // Determine what curret tacking state is
+    boolean getIsTrackingEnabled() {
+        return mapManager.getIsTrackingEnabled();
+    }
+
+    // Return the current set of marker on map
+    @Override
+    public HashMap<Marker, TruckStop> getMarkerMap() {
+        return mapManager.getMarkersMap();
+    }
+
+    // ************************* API REQUEST METHODS *************************
+
+    // Manage timers and actions for making call to pull new station information
+    @Override
+    public void delayedStationRequest(int delay, String radius, double lat, double lng, boolean saveOldMarkers) {
         stationRequestManager.manageStationRequestRunnable(delay, radius, lat, lng, saveOldMarkers);
     }
 
+    // Request station information specific to a passed in location
     @Override
     public void getStationsByLoc(String radius, double lat, double lng) {
         getTruckStationsByLocation(radius, lat, lng);
     }
 
-    void killRequestRunnable(){
+    // Cancel all pending station request calls
+    void killRequestRunnable() {
         stationRequestManager.stopRequestRunnable();
     }
 
-    // **********************************************************************************
-    // ***************************** TRACKING MODE METHODS ******************************
-    // **********************************************************************************
-
-    void turnTrackingOnByDelay(int delay) {
-        trackingManager.manageTrackingRunnable(delay);
-    }
-
-    void killTrackingMode() {
-        trackingManager.stopTrackingMode();
-    }
-
-    @Override
-    public void turnTackingBackOn() {
-        if (getView() != null) {
-            getView().turnTrackingOn();
-        }
-    }
-
-    // **********************************************************************************
-    // ****************************** SUBSCRIPTION METHODS ******************************
-    // **********************************************************************************
-
+    // Call dataManager to use Api to get station information based on location
     private void getTruckStationsByLocation(String radius, double lat, double lng) {
         truckStationSub = dataManager.getStationsFromApi(radius, lat, lng)
                 .subscribeOn(Schedulers.io())
@@ -174,7 +196,7 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
                         Timber.e(e, "Error getting stations.");
 
                         if (isViewAttached()) {
-                            getView().onError(e);
+                            getView().onApiError(e);
                         }
                     }
 
@@ -186,36 +208,53 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
                 });
     }
 
+    // Handle routing of station information after receiving from API
     private void stationsRetrieved(ArrayList<TruckStop> list) {
         if (isViewAttached()) {
             if (getView() != null) {
                 if (!stationRequestManager.isSaveMarkers()) {
                     Timber.d("clearing markers");
-                    getView().clearMarkers();
+                    mapManager.clearMapMarkers();
                 } else {
                     Timber.d("adding markers to existing map");
                 }
 
                 for (TruckStop truckStop : list) {
-                    addStationMarkerToMap(truckStop);
+                    mapManager.addMarkerToMapView(truckStop);
                 }
             }
         }
     }
 
-    private void addStationMarkerToMap(TruckStop truckStop) {
-        MarkerOptions options = new MarkerOptions();
-        double lat = Double.parseDouble(truckStop.getLat());
-        double lng = Double.parseDouble(truckStop.getLng());
-        options.position(new LatLng(lat, lng));
-        options.title(truckStop.getName());
-        options.icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_store_red_36dp));
+    // ************************* TRACKING MANAGER METHODS *************************
 
-        if (isViewAttached())
-            getView().addTruckStopToMap(options, truckStop);
+    // Turn tracking mode back on after specified delay - after search, user camera movement, etc.
+    @Override
+    public void turnTrackingOnByDelay(int delay) {
+        trackingManager.manageTrackingRunnable(delay);
     }
 
-    void getSavedMapType(){
+    // Cancel all pending tracking updates
+    void killTrackingMode() {
+        trackingManager.stopTrackingMode();
+    }
+
+    // Reset tracking booleans to continue tracking -future refactor - can remove this completely
+    @Override
+    public void turnTackingBackOn() {
+        mapManager.turnTrackingOn();
+    }
+
+    // Set the tracking state boolean
+    void setTrackingState(boolean isTracking) {
+        mapManager.setTrackingEnabledState(isTracking);
+    }
+
+    // ************************* PERSISTED OPTIONS METHODS *************************
+
+    // Get previously saved map type - normal by default
+    @Override
+    public void getSavedMapType() {
         Timber.d("PERSIST - Map type requested from shared pref");
         mapTypeSub = dataManager.getMapTypeFromSharedPref()
                 .subscribeOn(Schedulers.io())
@@ -230,23 +269,25 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
                     public void onError(Throwable e) {
                         Timber.e(e, "Error getting map type from shared preferences");
 
-                        if(isViewAttached())
-                            getView().onError(e);
+                        if (isViewAttached())
+                            getView().onMapStateError(e);
                     }
 
                     @Override
                     public void onNext(Integer mapType) {
-                        if (isViewAttached())
-                            getView().returnMapType(mapType);
+                        setMapType(mapType);
                     }
                 });
     }
 
-    void saveMapTypeToSharedPref(int mapType){
+    // Persist map type in shared pref for app restart
+    @Override
+    public void saveMapTypeToSharedPref(int mapType) {
         dataManager.saveMapType(mapType);
     }
 
-    void getSavedTrackingState(){
+    // Get previously saved tracking state - off by default
+    void getSavedTrackingState() {
         trackingStateSub = dataManager.getTrackingStateFromSharedPref()
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
@@ -260,19 +301,23 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
                     public void onError(Throwable e) {
                         Timber.e(e, "Error getting tracking state from shared preferences");
 
-                        if(isViewAttached())
-                            getView().onError(e);
+                        if (isViewAttached())
+                            getView().onTrackingStateError(e);
                     }
 
                     @Override
                     public void onNext(Boolean isTracking) {
+                        Timber.d("PERSIST - Tracking state returned from shared pref: %s", isTracking);
+                        setTrackingState(isTracking);
+
                         if (isViewAttached())
-                            getView().returnTrackingState(isTracking);
+                            getView().toggleTrackingIcon(isTracking);
                     }
                 });
     }
 
-    void saveTrackingState(boolean isTracking){
+    // Persist tracking state for app restart
+    void saveTrackingState(boolean isTracking) {
         dataManager.saveTrackingState(isTracking);
     }
 }
