@@ -65,28 +65,14 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
         super.detachView();
     }
 
-    void startTimerToClearSearchBlock() {
-        if (getIsTrackingEnabled())
-            turnTrackingOnByDelay(mapManager.getSearchDelay());
+    // ***** SEARACH METHODS *****
 
-        turnSearchBlockOffByDelay(mapManager.getSearchDelay());
-        delayedStationRequest(mapManager.getSearchDelay(),
-                "100",
-                mapManager.getCurrentLoc().latitude,
-                mapManager.getCurrentLoc().longitude,
-                false);
-    }
-
+    // Launches search logic in searchManager
     void performSearch(String name, String city, String state, String zip) {
         searchManager.determineSearchParams(name, city, state, zip);
     }
 
-    @Override
-    public HashMap<Marker, TruckStop> getMarkerMap() {
-        return mapManager.getMarkersMap();
-    }
-
-    // clear the map - put markers on map
+    // Clears current markers off map and displays matches from search for 30 seconds
     @Override
     public void deliverSearchResults(ArrayList<TruckStop> results) {
         Timber.d("Results found: %s", results.size());
@@ -106,14 +92,32 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
         mapManager.getMarkersMap().size();
     }
 
+    // Sets the search block for tracking mode
+    void setIsSearching(boolean isSearching) {
+        mapManager.setIsSearching(isSearching);
+    }
+
+    // Handles setting timer to clear search block and resume tracking mode
+    void startTimerToClearSearchBlock() {
+        if (getIsTrackingEnabled())
+            turnTrackingOnByDelay(mapManager.getSearchDelay());
+
+        searchManager.manageSearchBlockRunnable(mapManager.getSearchDelay());
+        delayedStationRequest(mapManager.getSearchDelay(),
+                "100",
+                mapManager.getCurrentLoc().latitude,
+                mapManager.getCurrentLoc().longitude,
+                false);
+    }
+
+    // Clears the search block
     @Override
     public void turnSearchBlockOff() {
         mapManager.turnTrackingOn();
     }
 
-    private void turnSearchBlockOffByDelay(int delay) {
-        searchManager.manageSearchBlockRunnable(delay);
-    }
+
+
 
     @Override
     public TruckStop getStopInfoFromMarker(Marker marker) {
@@ -139,10 +143,6 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
 
     boolean getIsTrackingEnabled() {
         return mapManager.getIsTrackingEnabled();
-    }
-
-    void setIsSearching(boolean isSearching) {
-        mapManager.setIsSearching(isSearching);
     }
 
     @Override
@@ -288,5 +288,10 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
 
     void initLocationServices(GoogleApiClient client, GoogleMap map, WeakReference<Activity> weakRef) {
         mapManager.setupLocationServices(client, map, weakRef, this);
+    }
+
+    @Override
+    public HashMap<Marker, TruckStop> getMarkerMap() {
+        return mapManager.getMarkersMap();
     }
 }

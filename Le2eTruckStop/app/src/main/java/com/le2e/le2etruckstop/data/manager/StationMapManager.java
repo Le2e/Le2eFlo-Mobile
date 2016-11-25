@@ -96,6 +96,7 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
                         && ActivityCompat.checkSelfPermission(activityRef.get(),
                         Manifest.permission.ACCESS_COARSE_LOCATION)
                         != PackageManager.PERMISSION_GRANTED) {
+
                     return;
                 }
             }

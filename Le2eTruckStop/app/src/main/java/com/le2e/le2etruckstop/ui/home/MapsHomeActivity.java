@@ -1,6 +1,7 @@
 package com.le2e.le2etruckstop.ui.home;
 
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
@@ -33,6 +34,7 @@ import com.le2e.le2etruckstop.config.BaseApplication;
 import com.le2e.le2etruckstop.data.manager.DataManager;
 import com.le2e.le2etruckstop.ui.base.mvp.MvpBaseActivity;
 import com.sothree.slidinguppanel.SlidingUpPanelLayout;
+import com.tbruyelle.rxpermissions.RxPermissions;
 
 import java.lang.ref.WeakReference;
 
@@ -40,6 +42,7 @@ import javax.inject.Inject;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
+import rx.Subscriber;
 import timber.log.Timber;
 
 public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePresenter>
@@ -81,6 +84,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         BaseApplication.get().getAppComponent().inject(this);
         super.onCreate(bundle);
 
+
         if (googleServicesAvailable()) {
             setContentView(R.layout.activity_maps_home);
             ButterKnife.bind(this);
@@ -94,6 +98,12 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     }
 
     @Override
+    protected void onStart() {
+        super.onStart();
+        requestRunTimePermissions();
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         isLocationEnabled();
@@ -103,97 +113,6 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     public void onDestroy() {
         googleApiClient.disconnect();
         super.onDestroy();
-    }
-
-    // GoogleApiClient connect success - starts mapManager initialization
-    @Override
-    public void onConnected(@Nullable Bundle bundle) {
-        presenter.initLocationServices(googleApiClient, mMap, new WeakReference<Activity>(this));
-    }
-
-    // Fires when googleApiClient connection is suspended
-    @Override
-    public void onConnectionSuspended(int i) {
-        Timber.w("Google APIs connection suspended.");
-    }
-
-    // Fires when googleApiclient failes to connect
-    @Override
-    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-        Timber.e("Google APIs connection failed with code: %d", connectionResult.getErrorCode());
-    }
-
-    // Called when async setup in initMap() finishes
-    // - gets reference to map fragment
-    // - connects googleApiClient
-    @Override
-    public void onMapReady(GoogleMap googleMap) {
-        if (googleMap != null) {
-            mMap = googleMap;
-
-            googleApiClient = new GoogleApiClient.Builder(this)
-                    .addApi(LocationServices.API)
-                    .addConnectionCallbacks(this)
-                    .addOnConnectionFailedListener(this)
-                    .build();
-
-            googleApiClient.connect();
-        }
-    }
-
-    // Error handler for api calls via observables
-    @Override
-    public void onError(Throwable e) {
-        // TODO: Handle it
-    }
-
-    // Display toast, clear inputs, start timer for delay on return to tracking
-    @Override
-    public void printResults(String message) {
-        clearSearchInputs();
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
-        presenter.startTimerToClearSearchBlock();
-    }
-
-    // Toolbar mean creation
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.menu_main, menu);
-        return true;
-    }
-
-    // Toggle satellite and normal mode
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getTitle().equals(getResources().getString(R.string.menu_item_satellite_toggle_title))) {
-            int mapType;
-
-            // If isSatellite - swap to normal and update maptype
-            if (presenter.getIsSatellite())
-                mapType = GoogleMap.MAP_TYPE_NORMAL;
-            else
-                mapType = GoogleMap.MAP_TYPE_SATELLITE;
-
-            presenter.setMapType(mapType);
-        }
-        return true;
-    }
-
-    // Toggles fab icon to reflect tracking mode state
-    @Override
-    public void toggleTrackingIcon(boolean isTracking) {
-        if (isTracking)
-            fabTrack.setImageResource(R.drawable.ic_navigation_red_48dp);
-        else
-            fabTrack.setImageResource(R.drawable.ic_navigation_white_48dp);
-    }
-
-    // Clears out old search inputs
-    private void clearSearchInputs() {
-        etStopName.getText().clear();
-        etCityName.getText().clear();
-        etStateName.getText().clear();
-        etZipcode.getText().clear();
     }
 
     // Sets up SlidingUpPanel event listeners and logic
@@ -272,6 +191,111 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         });
     }
 
+    // Toolbar mean creation
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_main, menu);
+        return true;
+    }
+
+    // Toggle satellite and normal mode
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getTitle().equals(getResources().getString(R.string.menu_item_satellite_toggle_title))) {
+            int mapType;
+
+            // If isSatellite - swap to normal and update maptype
+            if (presenter.getIsSatellite())
+                mapType = GoogleMap.MAP_TYPE_NORMAL;
+            else
+                mapType = GoogleMap.MAP_TYPE_SATELLITE;
+
+            presenter.setMapType(mapType);
+        }
+        return true;
+    }
+
+    // GoogleApiClient connect success - starts mapManager initialization
+    @Override
+    public void onConnected(@Nullable Bundle bundle) {
+        presenter.initLocationServices(googleApiClient, mMap, new WeakReference<Activity>(this));
+    }
+
+    // Fires when googleApiClient connection is suspended
+    @Override
+    public void onConnectionSuspended(int i) {
+        Timber.w("Google APIs connection suspended.");
+    }
+
+    // Fires when googleApiclient failes to connect
+    @Override
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+        Timber.e("Google APIs connection failed with code: %d", connectionResult.getErrorCode());
+    }
+
+    // Sets up the map fragment view
+    private void initMap() {
+        MapFragment mapFragment = (MapFragment) getFragmentManager().findFragmentById(R.id.map_fragment);
+        mapFragment.getMapAsync(this);
+    }
+
+    // Called when async setup in initMap() finishes
+    // - gets reference to map fragment
+    // - connects googleApiClient
+    @Override
+    public void onMapReady(GoogleMap googleMap) {
+        if (googleMap != null) {
+            mMap = googleMap;
+
+            googleApiClient = new GoogleApiClient.Builder(this)
+                    .addApi(LocationServices.API)
+                    .addConnectionCallbacks(this)
+                    .addOnConnectionFailedListener(this)
+                    .build();
+
+            googleApiClient.connect();
+        }
+    }
+
+    // Error handler for api calls via observables
+    @Override
+    public void onError(Throwable e) {
+        // TODO: Handle it
+    }
+
+    // Display toast, clear inputs, start timer for delay on return to tracking
+    @Override
+    public void printResults(String message) {
+        clearSearchInputs();
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+        presenter.startTimerToClearSearchBlock();
+    }
+
+    // Toggles fab icon to reflect tracking mode state
+    @Override
+    public void toggleTrackingIcon(boolean isTracking) {
+        if (isTracking)
+            fabTrack.setImageResource(R.drawable.ic_navigation_red_48dp);
+        else
+            fabTrack.setImageResource(R.drawable.ic_navigation_white_48dp);
+    }
+
+    // Checks to see if google services is available - offers user option to enable
+    public boolean googleServicesAvailable() {
+        GoogleApiAvailability apiAvailability = GoogleApiAvailability.getInstance();
+        int isAvailable = apiAvailability.isGooglePlayServicesAvailable(this);
+        if (isAvailable == ConnectionResult.SUCCESS) {
+            return true;
+        } else if (apiAvailability.isUserResolvableError(isAvailable)) {
+            Dialog dialog = apiAvailability.getErrorDialog(this, isAvailable, 0);
+            dialog.show();
+        } else {
+            Toast.makeText(this, "Can't connect to play services", Toast.LENGTH_SHORT).show();
+        }
+
+        return false;
+    }
+
     // Checks to makes location services are enabled - provides user a way to turn them on
     public void isLocationEnabled() {
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
@@ -306,10 +330,33 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
                 .show();
     }
 
-    // Sets up the map fragment view
-    private void initMap() {
-        MapFragment mapFragment = (MapFragment) getFragmentManager().findFragmentById(R.id.map_fragment);
-        mapFragment.getMapAsync(this);
+    public void requestRunTimePermissions() {
+        RxPermissions rxPermissions = new RxPermissions(this);
+        rxPermissions.request(Manifest.permission.ACCESS_FINE_LOCATION)
+                .subscribe(new Subscriber<Boolean>() {
+                    @Override
+                    public void onCompleted() {
+
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+
+                    }
+
+                    @Override
+                    public void onNext(Boolean granted) {
+                        Timber.d("PERMISSION = %s", granted);
+                    }
+                });
+    }
+
+    // Clears out old search inputs
+    private void clearSearchInputs() {
+        etStopName.getText().clear();
+        etCityName.getText().clear();
+        etStateName.getText().clear();
+        etZipcode.getText().clear();
     }
 
     // Hides the soft keyboard if present
@@ -320,19 +367,4 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         }
     }
 
-    // Checks to see if google services is available - offers user option to enable
-    public boolean googleServicesAvailable() {
-        GoogleApiAvailability apiAvailability = GoogleApiAvailability.getInstance();
-        int isAvailable = apiAvailability.isGooglePlayServicesAvailable(this);
-        if (isAvailable == ConnectionResult.SUCCESS) {
-            return true;
-        } else if (apiAvailability.isUserResolvableError(isAvailable)) {
-            Dialog dialog = apiAvailability.getErrorDialog(this, isAvailable, 0);
-            dialog.show();
-        } else {
-            Toast.makeText(this, "Can't connect to play services", Toast.LENGTH_SHORT).show();
-        }
-
-        return false;
-    }
 }
