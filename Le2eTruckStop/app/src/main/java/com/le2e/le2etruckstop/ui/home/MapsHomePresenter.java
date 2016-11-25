@@ -93,7 +93,7 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
     }
 
     // Sets the search block for tracking mode
-    void setIsSearching(boolean isSearching) {
+    void setIsSearching(@SuppressWarnings("SameParameterValue") boolean isSearching) {
         mapManager.setIsSearching(isSearching);
     }
 
@@ -318,6 +318,7 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements Tracki
 
     // Persist tracking state for app restart
     void saveTrackingState(boolean isTracking) {
+        Timber.d("PERSIST - Saving tracking state: %s", isTracking);
         dataManager.saveTrackingState(isTracking);
     }
 }

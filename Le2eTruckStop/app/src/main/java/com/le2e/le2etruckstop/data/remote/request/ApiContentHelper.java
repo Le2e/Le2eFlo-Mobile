@@ -5,7 +5,6 @@ import com.le2e.le2etruckstop.BuildConfig;
 import com.le2e.le2etruckstop.data.remote.response.StationsResponse;
 
 import rx.Observable;
-import rx.functions.Func0;
 
 public class ApiContentHelper {
     private TruckServiceApi api;

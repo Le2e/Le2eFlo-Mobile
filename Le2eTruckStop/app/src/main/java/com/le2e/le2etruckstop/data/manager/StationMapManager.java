@@ -33,8 +33,11 @@ import java.util.HashSet;
 import timber.log.Timber;
 
 public class StationMapManager implements LocationListener, GoogleMap.OnCameraIdleListener, GoogleMap.OnMarkerClickListener {
+    @SuppressWarnings("FieldCanBeLocal")
     private final int SEARCH_BLOCK_DELAY = 30000;
+    @SuppressWarnings("FieldCanBeLocal")
     private final int API_REQUEST_DELAY = 500;
+    @SuppressWarnings("FieldCanBeLocal")
     private final int DIALOG_DELAY = 15000;
 
     private HashMap<Marker, TruckStop> markersMap;
@@ -42,12 +45,15 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
     private MapManagerImpl mapManagerPresenter;
 
     private GoogleMap googleMap;
+    @SuppressWarnings("FieldCanBeLocal")
     private GoogleApiClient googleApiClient;
+    @SuppressWarnings("FieldCanBeLocal")
     private LocationRequest locationRequest;
     private TruckStopPopupAdapter popupAdapter;
     private Marker currentLocMarker;
     private LatLng currentLoc;
 
+    @SuppressWarnings("FieldCanBeLocal")
     private float zoomLevel = 7.0f;
     private boolean isMapFirstLoad = false;
     private boolean isTrackingEnabled = false;

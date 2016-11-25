@@ -18,11 +18,9 @@ import com.le2e.le2etruckstop.ui.home.interfaces.PopupInfoImpl;
 import java.lang.ref.WeakReference;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
-import java.util.HashMap;
 
 public class TruckStopPopupAdapter implements GoogleMap.InfoWindowAdapter {
     private LayoutInflater layoutInflater;
-    private HashMap<Marker, TruckStop> stopsMap;
     private MapsHomeActivity activity;
     private PopupInfoImpl presenterImpl;
 
@@ -30,7 +28,6 @@ public class TruckStopPopupAdapter implements GoogleMap.InfoWindowAdapter {
         this.presenterImpl = presenterImpl;
         this.activity = (MapsHomeActivity) activity.get();
         layoutInflater = activity.get().getLayoutInflater();
-        stopsMap = new HashMap<>();
     }
 
     @Override

@@ -68,7 +68,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
 
     private GoogleMap mMap;
     private GoogleApiClient googleApiClient;
-    LocationManager locationManager;
+    private LocationManager locationManager;
 
     @NonNull
     @Override
@@ -176,7 +176,8 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
 
                 // update tracking state then save tracking state
                 presenter.setTrackingState(!isTracking);
-                presenter.saveTrackingState(isTracking);
+                toggleTrackingIcon(!isTracking);
+                presenter.saveTrackingState(!isTracking);
             }
         });
     }
@@ -283,6 +284,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     // Toggles fab icon to reflect tracking mode state
     @Override
     public void toggleTrackingIcon(boolean isTracking) {
+        Timber.d("WTF %s", isTracking);
         if (isTracking)
             fabTrack.setImageResource(R.drawable.ic_navigation_red_48dp);
         else
@@ -290,7 +292,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     }
 
     // Checks to see if google services is available - offers user option to enable
-    public boolean googleServicesAvailable() {
+    private boolean googleServicesAvailable() {
         GoogleApiAvailability apiAvailability = GoogleApiAvailability.getInstance();
         int isAvailable = apiAvailability.isGooglePlayServicesAvailable(this);
         if (isAvailable == ConnectionResult.SUCCESS) {
@@ -306,7 +308,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     }
 
     // Checks to makes location services are enabled - provides user a way to turn them on
-    public void isLocationEnabled() {
+    private void isLocationEnabled() {
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
         boolean gps_enabled = false;
 
@@ -335,7 +337,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
                         startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
                     }
                 })
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton(getResources().getString(R.string.error_loc_ser_negative), null)
                 .show();
     }
 
