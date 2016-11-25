@@ -13,7 +13,7 @@ import com.google.android.gms.maps.model.Marker;
 import com.le2e.le2etruckstop.R;
 import com.le2e.le2etruckstop.data.remote.response.TruckStop;
 import com.le2e.le2etruckstop.ui.home.MapsHomeActivity;
-import com.le2e.le2etruckstop.ui.home.impl.PopupInfoImpl;
+import com.le2e.le2etruckstop.ui.home.interfaces.PopupInfoImpl;
 
 import java.lang.ref.WeakReference;
 import java.math.RoundingMode;

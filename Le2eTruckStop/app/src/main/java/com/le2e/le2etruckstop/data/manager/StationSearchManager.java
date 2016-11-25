@@ -5,7 +5,7 @@ import android.os.Handler;
 
 import com.google.android.gms.maps.model.Marker;
 import com.le2e.le2etruckstop.data.remote.response.TruckStop;
-import com.le2e.le2etruckstop.ui.home.impl.SearchImpl;
+import com.le2e.le2etruckstop.ui.home.interfaces.SearchImpl;
 
 import java.util.ArrayList;
 import java.util.HashMap;

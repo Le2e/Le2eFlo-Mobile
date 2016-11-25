@@ -5,7 +5,6 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.pm.PackageManager;
 import android.location.Location;
-import android.location.LocationManager;
 import android.os.Build;
 import android.support.v4.app.ActivityCompat;
 
@@ -24,8 +23,8 @@ import com.google.android.gms.maps.model.MarkerOptions;
 import com.le2e.le2etruckstop.R;
 import com.le2e.le2etruckstop.data.remote.response.TruckStop;
 import com.le2e.le2etruckstop.ui.common.TruckStopPopupAdapter;
-import com.le2e.le2etruckstop.ui.home.impl.MapManagerImpl;
-import com.le2e.le2etruckstop.ui.home.impl.PopupInfoImpl;
+import com.le2e.le2etruckstop.ui.home.interfaces.MapManagerImpl;
+import com.le2e.le2etruckstop.ui.home.interfaces.PopupInfoImpl;
 
 import java.lang.ref.WeakReference;
 import java.util.HashMap;
@@ -63,15 +62,17 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
         stationSet = new HashSet<>();
     }
 
+    // Returns TruckStop object based on marker param
     public TruckStop getStopInfoFromMarker(Marker marker) {
         return markersMap.get(marker);
     }
 
+    // Returns hashmap of TruckStop objects with marker keys
     public HashMap<Marker, TruckStop> getMarkersMap() {
         return markersMap;
     }
 
-    // clears out set data for marker/truck stop details
+    // Clears out set data for marker/truck stop details
     public void clearMapMarkers() {
         if (googleMap != null) {
             googleMap.clear();
@@ -82,6 +83,7 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
         stationSet.clear();
     }
 
+    // Sets up location services
     public void setupLocationServices(GoogleApiClient client, GoogleMap googleMap, WeakReference<Activity> activityRef, PopupInfoImpl popupInfoPresenter) {
         this.googleApiClient = client;
         this.googleMap = googleMap;
@@ -112,6 +114,7 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
         }
     }
 
+    // Sets up map listeners
     private void setupGoogleMap() {
         mapManagerPresenter.getSavedMapType();
         googleMap.setInfoWindowAdapter(popupAdapter);
@@ -119,6 +122,7 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
         googleMap.setOnMarkerClickListener(this);
     }
 
+    // Receives location as user moves
     @Override
     public void onLocationChanged(Location location) {
         if (location != null) {
@@ -128,23 +132,24 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
             if (isMapFirstLoad) {
                 moveToCurrentLoc();
                 isMapFirstLoad = false;
-                updateCurrentMarker(false);
+                updateCurrentLocationMarker(false);
             } else {
                 Timber.d("SearchingModeEnabled: %s", isSearching);
                 Timber.d("TrackingModeEnabled: %s", isTrackingEnabled);
                 if (isTrackingEnabled) {
                     if (!isTrackingSuspended) {
                         Timber.d("unsuspended move");
-                        updateCurrentMarker(true);
+                        updateCurrentLocationMarker(true);
                     }
                 } else {
                     Timber.d("non tracked current loc update");
-                    updateCurrentMarker(false);
+                    updateCurrentLocationMarker(false);
                 }
             }
         }
     }
 
+    // Called when the camera has come to an idle state
     @Override
     public void onCameraIdle() {
         // Prevents api calls / tracking movement while search window is open or after it
@@ -197,6 +202,7 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
         infoPop = false;
     }
 
+    // Shows marker info window
     @Override
     public boolean onMarkerClick(Marker marker) {
         // Delay tracking mode restart by specific amount
@@ -210,6 +216,7 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
         return false;
     }
 
+    // Moves camera to user's current loc
     public void moveToCurrentLoc() {
         if (currentLoc != null && googleMap != null) {
             CameraUpdate update = CameraUpdateFactory.newLatLngZoom(currentLoc, zoomLevel);
@@ -217,7 +224,8 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
         }
     }
 
-    private void updateCurrentMarker(boolean moveCamera) {
+    // Maintains current location marker for user's position
+    private void updateCurrentLocationMarker(boolean moveCamera) {
         // set current location marker
         if (currentLocMarker != null) {
             if (!currentLocMarker.isInfoWindowShown())
@@ -230,6 +238,7 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
         }
     }
 
+    // Sets the current location marker for user's location
     private void setCurrentLocationMarker(LatLng loc) {
         MarkerOptions options = new MarkerOptions()
                 .title("You")
@@ -239,6 +248,7 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
         currentLocMarker = googleMap.addMarker(options);
     }
 
+    // Sets the map type
     public void setMapType(int mapType) {
         Timber.d("PERSIST - Map type returned from shared pref: %s", mapType);
         if (mapType == GoogleMap.MAP_TYPE_NORMAL)
@@ -253,15 +263,18 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
         saveMapType(mapType);
     }
 
+    // Persists the new map type
     private void saveMapType(int mapType) {
         Timber.d("PERSIST - Saving map type to sharedPref: %s", mapType);
         mapManagerPresenter.saveMapTypeToSharedPref(mapType);
     }
 
+    // Returns the user's current location
     public LatLng getCurrentLoc() {
         return currentLoc;
     }
 
+    // Adds a marker with TruckStop object data to map
     public void addMarkerToMapView(TruckStop truckStop) {
         // check if stop has already been added to map - if not, add it
         if (!stationSet.contains(truckStop)) {
@@ -290,6 +303,7 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
         */
     }
 
+    // Handles reset of tracking state after a tracking suspension
     public void turnTrackingOn() {
         Timber.d("tracking unsuspended");
 
@@ -297,29 +311,30 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
             Timber.d("search block cleared");
 
         isTrackingSuspended = false;
-        turnSearchingOff();
+        setIsSearching(false);
     }
 
-    private void turnSearchingOff() {
-        isSearching = false;
-    }
-
+    // Return current tracking state
     public boolean getIsTrackingEnabled() {
         return isTrackingEnabled;
     }
 
+    // Returns default search delay amount
     public int getSearchDelay() {
         return SEARCH_BLOCK_DELAY;
     }
 
+    // Sets tracking state by passed in param
     public void setTrackingEnabledState(boolean isTracking) {
         isTrackingEnabled = isTracking;
     }
 
+    // Returns current map state based upon isSatellite or normal
     public boolean getIsSatellite(){
         return isSatellite;
     }
 
+    // Sets the searching state to passed param
     public void setIsSearching(boolean isSearching){
         this.isSearching = isSearching;
     }

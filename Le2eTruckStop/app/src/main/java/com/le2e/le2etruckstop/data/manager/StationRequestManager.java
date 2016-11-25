@@ -3,7 +3,7 @@ package com.le2e.le2etruckstop.data.manager;
 
 import android.os.Handler;
 
-import com.le2e.le2etruckstop.ui.home.impl.StationRequestImpl;
+import com.le2e.le2etruckstop.ui.home.interfaces.StationRequestImpl;
 
 import timber.log.Timber;
 

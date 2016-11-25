@@ -1,7 +1,6 @@
 package com.le2e.le2etruckstop.ui.home;
 
 
-import android.Manifest;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
@@ -34,7 +33,6 @@ import com.le2e.le2etruckstop.config.BaseApplication;
 import com.le2e.le2etruckstop.data.manager.DataManager;
 import com.le2e.le2etruckstop.ui.base.mvp.MvpBaseActivity;
 import com.sothree.slidinguppanel.SlidingUpPanelLayout;
-import com.tbruyelle.rxpermissions.RxPermissions;
 
 import java.lang.ref.WeakReference;
 
@@ -42,7 +40,6 @@ import javax.inject.Inject;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
-import rx.Subscriber;
 import timber.log.Timber;
 
 public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePresenter>
@@ -84,7 +81,6 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         BaseApplication.get().getAppComponent().inject(this);
         super.onCreate(bundle);
 
-
         if (googleServicesAvailable()) {
             setContentView(R.layout.activity_maps_home);
             ButterKnife.bind(this);
@@ -95,12 +91,6 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         } else {
             setContentView(R.layout.activity_maps_home_disabled);
         }
-    }
-
-    @Override
-    protected void onStart() {
-        super.onStart();
-        requestRunTimePermissions();
     }
 
     @Override
@@ -259,8 +249,27 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
 
     // Error handler for api calls via observables
     @Override
-    public void onError(Throwable e) {
-        // TODO: Handle it
+    public void onApiError(Throwable e) {
+        showErrorDialog(getResources().getString(R.string.error_title), getResources().getString(R.string.error_api_connection));
+    }
+
+    @Override
+    public void onMapStateError(Throwable e) {
+        showErrorDialog(getResources().getString(R.string.error_title), getResources().getString(R.string.error_map_state));
+    }
+
+    @Override
+    public void onTrackingStateError(Throwable e) {
+        showErrorDialog(getResources().getString(R.string.error_title), getResources().getString(R.string.error_tracking_state));
+    }
+
+    private void showErrorDialog(String title, String message){
+        new AlertDialog.Builder(this)
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .setTitle(title)
+                .setMessage(message)
+                .setNegativeButton(getResources().getString(R.string.btn_ok), null)
+                .show();
     }
 
     // Display toast, clear inputs, start timer for delay on return to tracking
@@ -318,9 +327,9 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     private void alertUserEnabledLocationServices() {
         new AlertDialog.Builder(this).setIcon(
                 android.R.drawable.ic_dialog_alert)
-                .setTitle("Location Services Disabled")
-                .setMessage("In order to access all the features, you must enable Location Services.")
-                .setPositiveButton("Enable Location Services", new DialogInterface.OnClickListener() {
+                .setTitle(getResources().getString(R.string.error_loc_serv_title))
+                .setMessage(getResources().getString(R.string.error_loc_serv_msg))
+                .setPositiveButton(getResources().getString(R.string.error_loc_ser_positive), new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
                         startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
@@ -328,27 +337,6 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
-    }
-
-    public void requestRunTimePermissions() {
-        RxPermissions rxPermissions = new RxPermissions(this);
-        rxPermissions.request(Manifest.permission.ACCESS_FINE_LOCATION)
-                .subscribe(new Subscriber<Boolean>() {
-                    @Override
-                    public void onCompleted() {
-
-                    }
-
-                    @Override
-                    public void onError(Throwable e) {
-
-                    }
-
-                    @Override
-                    public void onNext(Boolean granted) {
-                        Timber.d("PERMISSION = %s", granted);
-                    }
-                });
     }
 
     // Clears out old search inputs
