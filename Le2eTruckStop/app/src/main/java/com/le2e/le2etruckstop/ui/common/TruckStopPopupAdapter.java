@@ -87,22 +87,28 @@ public class TruckStopPopupAdapter implements GoogleMap.InfoWindowAdapter {
 
     private String calcDistance(String stopLat, String stopLng) {
         LatLng latLng = presenterImpl.getCurrentLocation();
-        double sLat = Double.parseDouble(stopLat);
-        double sLng = Double.parseDouble(stopLng);
+        String msg;
+        if(latLng != null) {
+            double sLat = Double.parseDouble(stopLat);
+            double sLng = Double.parseDouble(stopLng);
 
-        Location sLoc = new Location("");
-        sLoc.setLatitude(sLat);
-        sLoc.setLongitude(sLng);
+            Location sLoc = new Location("");
+            sLoc.setLatitude(sLat);
+            sLoc.setLongitude(sLng);
 
-        Location cLoc = new Location("");
-        cLoc.setLatitude(latLng.latitude);
-        cLoc.setLongitude(latLng.longitude);
+            Location cLoc = new Location("");
+            cLoc.setLatitude(latLng.latitude);
+            cLoc.setLongitude(latLng.longitude);
 
-        double dist = cLoc.distanceTo(sLoc);
-        dist = dist * 0.000621371f;
-        DecimalFormat df = new DecimalFormat("#.#");
-        df.setRoundingMode(RoundingMode.UP);
+            double dist = cLoc.distanceTo(sLoc);
+            dist = dist * 0.000621371f;
+            DecimalFormat df = new DecimalFormat("#.#");
+            df.setRoundingMode(RoundingMode.UP);
+            msg = df.format(dist) + " miles";
+        } else {
+            msg = "Unknown Distance";
+        }
 
-        return df.format(dist) + " miles";
+        return msg;
     }
 }

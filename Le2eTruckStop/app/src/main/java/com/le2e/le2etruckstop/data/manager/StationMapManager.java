@@ -21,18 +21,25 @@ import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.le2e.le2etruckstop.R;
+import com.le2e.le2etruckstop.data.remote.response.StationsResponse;
 import com.le2e.le2etruckstop.data.remote.response.TruckStop;
 import com.le2e.le2etruckstop.ui.common.TruckStopPopupAdapter;
 import com.le2e.le2etruckstop.ui.home.interfaces.MapManagerImpl;
 import com.le2e.le2etruckstop.ui.home.interfaces.PopupInfoImpl;
+import com.le2e.le2etruckstop.ui.home.interfaces.SearchImpl;
+import com.le2e.le2etruckstop.ui.home.interfaces.StationRequestImpl;
+import com.le2e.le2etruckstop.ui.home.interfaces.TrackingImpl;
+import com.sothree.slidinguppanel.SlidingUpPanelLayout;
 
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 
 import timber.log.Timber;
 
-public class StationMapManager implements LocationListener, GoogleMap.OnCameraIdleListener, GoogleMap.OnMarkerClickListener {
+public class StationMapManager implements LocationListener, GoogleMap.OnCameraIdleListener, GoogleMap.OnMarkerClickListener,
+        SearchImpl, TrackingImpl, StationRequestImpl, PopupInfoImpl {
     @SuppressWarnings("FieldCanBeLocal")
     private final int SEARCH_BLOCK_DELAY = 30000;
     @SuppressWarnings("FieldCanBeLocal")
@@ -62,38 +69,27 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
     private boolean isSatellite = false;
     private boolean infoPop = false;
 
+    private StationSearchManager searchManager;
+    private StationRequestManager requestManager;
+    private TrackingModeManager trackingManager;
+
+
     public StationMapManager(MapManagerImpl mapManagerPresenter) {
         this.mapManagerPresenter = mapManagerPresenter;
+
+        searchManager = new StationSearchManager(this);
+        trackingManager = new TrackingModeManager(this);
+        requestManager = new StationRequestManager(this);
+
         markersMap = new HashMap<>();
         stationSet = new HashSet<>();
     }
 
-    // Returns TruckStop object based on marker param
-    public TruckStop getStopInfoFromMarker(Marker marker) {
-        return markersMap.get(marker);
-    }
-
-    // Returns hashmap of TruckStop objects with marker keys
-    public HashMap<Marker, TruckStop> getMarkersMap() {
-        return markersMap;
-    }
-
-    // Clears out set data for marker/truck stop details
-    public void clearMapMarkers() {
-        if (googleMap != null) {
-            googleMap.clear();
-            setCurrentLocationMarker(currentLoc);
-        }
-
-        markersMap.clear();
-        stationSet.clear();
-    }
-
     // Sets up location services
-    public void setupLocationServices(GoogleApiClient client, GoogleMap googleMap, WeakReference<Activity> activityRef, PopupInfoImpl popupInfoPresenter) {
+    public void setupLocationServices(GoogleApiClient client, GoogleMap googleMap, WeakReference<Activity> activityRef) {
         this.googleApiClient = client;
         this.googleMap = googleMap;
-        popupAdapter = new TruckStopPopupAdapter(activityRef, popupInfoPresenter);
+        popupAdapter = new TruckStopPopupAdapter(activityRef, this);
         setupGoogleMap();
 
         if (activityRef.get() != null) {
@@ -123,6 +119,7 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
     // Sets up map listeners
     private void setupGoogleMap() {
         mapManagerPresenter.getSavedMapType();
+        mapManagerPresenter.getSavedTrackingState();
         googleMap.setInfoWindowAdapter(popupAdapter);
         googleMap.setOnCameraIdleListener(this);
         googleMap.setOnMarkerClickListener(this);
@@ -165,41 +162,32 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
             // Prevents actions when a info window is opened for a marker.
             if (!infoPop) {
                 if (googleMap != null) {
+                    // set case whether to save markers or not
+                    boolean saveMarkers = false;
                     // get bounds for current view of map
                     LatLngBounds bounds = googleMap.getProjection().getVisibleRegion().latLngBounds;
                     bounds.getCenter();
 
                     // Tracking logic
                     if (isTrackingEnabled) {
+                        Timber.d("Camera moved while tracking mode is enabled");
                         // Prevent camera recenter w/ isTrackingSuspended
+                        saveMarkers = true;
                         isTrackingSuspended = true;
-
-                        Timber.d("suspended runnable started");
 
                         // Spawn runnable when user slides screen to recenter camera after
                         //      brief duration.
-                        mapManagerPresenter.turnTrackingOnByDelay(5000);
-
-                        // Make api call to add points to map as user scrolls, use true param
-                        //      to prevent marker deletion.
-                        mapManagerPresenter.delayedStationRequest(
-                                API_REQUEST_DELAY,
-                                "100",
-                                bounds.getCenter().latitude,
-                                bounds.getCenter().longitude,
-                                true);
-                    } else {
-                        Timber.d("non tracked api call");
-                        // Limiting marker placement by 100 mile for the time being - cluster
-                        //      and other optimizations can be made in the future to allow
-                        //      a wider view.
-                        mapManagerPresenter.delayedStationRequest(
-                                API_REQUEST_DELAY,
-                                "100",
-                                bounds.getCenter().latitude,
-                                bounds.getCenter().longitude,
-                                false);
+                        turnTrackingOnByDelay(5000);
                     }
+                    // Limiting marker placement by 100 mile for the time being - cluster
+                    //      and other optimizations can be made in the future to allow
+                    //      a wider view.
+                    requestManager.manageStationRequestRunnable(
+                            API_REQUEST_DELAY,
+                            "100",
+                            bounds.getCenter().latitude,
+                            bounds.getCenter().longitude,
+                            saveMarkers);
                 }
             }
         }
@@ -214,12 +202,24 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
         // Delay tracking mode restart by specific amount
         if (isTrackingEnabled) {
             Timber.d("delayed by clicking dialog");
-            mapManagerPresenter.turnTrackingOnByDelay(DIALOG_DELAY);
+            turnTrackingOnByDelay(DIALOG_DELAY);
         }
 
         // set popup blocker to prevent post pop camera movement / api calls
         infoPop = true;
         return false;
+    }
+
+    // Clears out set data for marker/truck stop details
+    private void clearMapMarkers() {
+        Timber.d("clearing markers");
+        if (googleMap != null) {
+            googleMap.clear();
+            setCurrentLocationMarker(currentLoc);
+        }
+
+        markersMap.clear();
+        stationSet.clear();
     }
 
     // Moves camera to user's current loc
@@ -254,34 +254,8 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
         currentLocMarker = googleMap.addMarker(options);
     }
 
-    // Sets the map type
-    public void setMapType(int mapType) {
-        Timber.d("PERSIST - Map type returned from shared pref: %s", mapType);
-        if (mapType == GoogleMap.MAP_TYPE_NORMAL)
-            isSatellite = false;
-        else if (mapType == GoogleMap.MAP_TYPE_SATELLITE)
-            isSatellite = true;
-
-        Timber.d("PERSIST - Map type set to: %s", mapType);
-        if (googleMap != null)
-            googleMap.setMapType(mapType);
-
-        saveMapType(mapType);
-    }
-
-    // Persists the new map type
-    private void saveMapType(int mapType) {
-        Timber.d("PERSIST - Saving map type to sharedPref: %s", mapType);
-        mapManagerPresenter.saveMapTypeToSharedPref(mapType);
-    }
-
-    // Returns the user's current location
-    public LatLng getCurrentLoc() {
-        return currentLoc;
-    }
-
     // Adds a marker with TruckStop object data to map
-    public void addMarkerToMapView(TruckStop truckStop) {
+    private void addMarkerToMapView(TruckStop truckStop) {
         // check if stop has already been added to map - if not, add it
         if (!stationSet.contains(truckStop)) {
             stationSet.add(truckStop);
@@ -310,7 +284,7 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
     }
 
     // Handles reset of tracking state after a tracking suspension
-    public void turnTrackingOn() {
+    private void turnTrackingOn() {
         Timber.d("tracking unsuspended");
 
         if (isSearching)
@@ -320,28 +294,173 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
         setIsSearching(false);
     }
 
-    // Return current tracking state
-    public boolean getIsTrackingEnabled() {
-        return isTrackingEnabled;
-    }
-
-    // Returns default search delay amount
-    public int getSearchDelay() {
-        return SEARCH_BLOCK_DELAY;
-    }
-
     // Sets tracking state by passed in param
     public void setTrackingEnabledState(boolean isTracking) {
         isTrackingEnabled = isTracking;
     }
 
-    // Returns current map state based upon isSatellite or normal
-    public boolean getIsSatellite(){
-        return isSatellite;
-    }
 
     // Sets the searching state to passed param
-    public void setIsSearching(boolean isSearching){
+    private void setIsSearching(boolean isSearching) {
         this.isSearching = isSearching;
+    }
+
+    // ***** BELOW METHODS HAVE BEEN REFACTORED FROM PRESENTER *****
+
+    // ****************************** STATION RESPONSE METHODS ******************************
+
+    public void handleStationResponse(StationsResponse stationsResponse){
+        if(!requestManager.isSaveMarkers())
+            clearMapMarkers();
+
+        Timber.d("Adding new markers to map");
+
+        for (TruckStop truckStop : stationsResponse.getTruckStopList()) {
+            addMarkerToMapView(truckStop);
+        }
+    }
+
+    // ****************************** MAP TYPE TOGGLE METHODS ******************************
+
+    // Sets the map type
+    public void setMapType(int mapType) {
+        Timber.d("PERSIST - Map type returned from shared pref: %s", mapType);
+        if (mapType == GoogleMap.MAP_TYPE_NORMAL)
+            isSatellite = false;
+        else if (mapType == GoogleMap.MAP_TYPE_SATELLITE)
+            isSatellite = true;
+
+        Timber.d("PERSIST - Map type set to: %s", mapType);
+        if (googleMap != null)
+            googleMap.setMapType(mapType);
+
+        saveMapType(mapType);
+    }
+
+    // toggles satellite map type on and off with user interaction
+    public void toggleMapType() {
+        int mapType;
+        if (isSatellite)
+            mapType = GoogleMap.MAP_TYPE_NORMAL;
+        else
+            mapType = GoogleMap.MAP_TYPE_SATELLITE;
+
+        setMapType(mapType);
+    }
+
+    // Persists the new map type
+    private void saveMapType(int mapType) {
+        Timber.d("PERSIST - Saving map type to sharedPref: %s", mapType);
+        mapManagerPresenter.saveMapTypeToSharedPref(mapType);
+    }
+
+    // ****************************** TRACKING FUNCTIONALITY METHODS ******************************
+
+    // toggles tracking mode on and off with user interaction
+    public void toggleTrackingMode() {
+        // check is tracking
+        // - if tracking, kill tracking runnable
+        if (isTrackingEnabled)
+            trackingManager.stopTrackingMode();
+
+        // set new tracking mode
+        isTrackingEnabled = !isTrackingEnabled;
+        // make callback to presenter to toggle icons to reflect new mode in view -- this might should be moved into the view logic
+        mapManagerPresenter.toggleTrackingFabIcon(isTrackingEnabled);
+        // make callback to persist tracking state
+        mapManagerPresenter.saveTrackingState(isTrackingEnabled);
+    }
+
+    // restarts tracking runnable by specified delay
+    private void turnTrackingOnByDelay(int delay) {
+        trackingManager.manageTrackingRunnable(delay);
+    }
+
+    // ****************************** SEARCH FUNCTIONALITY METHODS ******************************
+
+    // search currently displayed stops for matches
+    public void searchKnownTruckStops(String name, String city, String state, String zip) {
+        // perform search - SM
+        // - needs marker map
+        searchManager.determineSearchParams(name, city, state, zip, markersMap);
+
+        // if isTrackingEnabled
+        // - set isSearching block to true - MM
+        if (isTrackingEnabled)
+            isSearching = true;
+    }
+
+    private void displaySearchResultsOnMap(ArrayList<TruckStop> results) {
+        clearMapMarkers();
+
+        for (TruckStop truckStop : results) {
+            addMarkerToMapView(truckStop);
+        }
+
+        searchManager.clearResults();
+        startTimerToClearSearchBlock();
+    }
+
+    private void startTimerToClearSearchBlock() {
+        // start timer restart tracking after search block if enabled
+        if (isTrackingEnabled)
+            turnTrackingOnByDelay(SEARCH_BLOCK_DELAY);
+
+        // start timer to clear search block and restart request runnable
+        searchManager.manageSearchBlockRunnable(SEARCH_BLOCK_DELAY);
+        requestManager.manageStationRequestRunnable(SEARCH_BLOCK_DELAY, "100", currentLoc.latitude, currentLoc.longitude, false);
+    }
+
+    public void searchPanelSlideEvent(SlidingUpPanelLayout.PanelState state) {
+        // if Expanded
+        if (state == SlidingUpPanelLayout.PanelState.EXPANDED) {
+            // place search block and stop all requests while user inputs search request
+            isSearching = true;
+            requestManager.stopRequestRunnable();
+            trackingManager.stopTrackingMode();
+        }
+
+        // is Collapsed
+        if (state == SlidingUpPanelLayout.PanelState.COLLAPSED) {
+            // start timer to clear search block - MM + SM
+            startTimerToClearSearchBlock();
+        }
+
+
+    }
+
+    // ****************************** INTERFACE IMPLEMENTATIONS ******************************
+
+    // handles passing
+    @Override
+    public void deliverSearchResults(ArrayList<TruckStop> results) {
+        mapManagerPresenter.deliverSearchResults(results.size());
+        displaySearchResultsOnMap(results);
+    }
+
+    @Override
+    public void turnSearchBlockOff() {
+        turnTrackingOn();
+    }
+
+    @Override
+    public void turnTackingBackOn() {
+        turnTrackingOn();
+    }
+
+    @Override
+    public void getStationsByLoc(String radius, double lat, double lng) {
+        mapManagerPresenter.getStationsByLoc(radius, lat, lng);
+    }
+
+    // Returns TruckStop object based on marker param
+    @Override
+    public TruckStop getStopInfoFromMarker(Marker marker) {
+        return markersMap.get(marker);
+    }
+
+    @Override
+    public LatLng getCurrentLocation() {
+        return currentLoc;
     }
 }

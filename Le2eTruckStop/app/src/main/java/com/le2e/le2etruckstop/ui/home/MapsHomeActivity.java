@@ -68,7 +68,6 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
 
     private GoogleMap mMap;
     private GoogleApiClient googleApiClient;
-    private LocationManager locationManager;
 
     @NonNull
     @Override
@@ -84,10 +83,9 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         if (googleServicesAvailable()) {
             setContentView(R.layout.activity_maps_home);
             ButterKnife.bind(this);
-            presenter.getSavedTrackingState();
             setupFabs();
             initMap();
-            setupSlide();
+            setupSearchSlidePanel();
         } else {
             setContentView(R.layout.activity_maps_home_disabled);
         }
@@ -106,7 +104,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     }
 
     // Sets up SlidingUpPanel event listeners and logic
-    private void setupSlide() {
+    private void setupSearchSlidePanel() {
         btnSearchStart.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -120,13 +118,6 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
                 // dismiss keyboard and slide panel up
                 searchSlideLayout.setPanelState(SlidingUpPanelLayout.PanelState.COLLAPSED);
                 dismissKeyboard();
-
-                // determine tracking mode operation
-                // --- if tracking
-                //      - maintain isSearching block on updates
-                if (presenter.getIsTrackingEnabled()) {
-                    presenter.setIsSearching(true);
-                }
             }
         });
 
@@ -140,18 +131,15 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
             public void onPanelStateChanged(View panel, SlidingUpPanelLayout.PanelState previousState, SlidingUpPanelLayout.PanelState newState) {
                 Timber.d("Panel: %s", newState);
 
-                // set searching block - cancel active runnables while EXPANDED
-                if (newState == SlidingUpPanelLayout.PanelState.EXPANDED) {
-                    presenter.setIsSearching(true);
-                    presenter.killRequestRunnable();
-                    presenter.killTrackingMode();
-                }
+                // handle event associated with showing/hiding search panel
+                // - manage search block timer
+                // - manage request timer
+                presenter.searchPanelSlideEvent(newState);
 
-                // hidekeyboard if visible, start timer to cancel search block
-                if (newState == SlidingUpPanelLayout.PanelState.COLLAPSED) {
+                // hide keyboard if visible
+                if (newState == SlidingUpPanelLayout.PanelState.COLLAPSED)
                     dismissKeyboard();
-                    presenter.startTimerToClearSearchBlock();
-                }
+
             }
         });
     }
@@ -161,6 +149,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         fabCurrentLoc.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                // moves camera to current loc
                 presenter.moveToCurrentLocation();
             }
         });
@@ -168,16 +157,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         fabTrack.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                boolean isTracking = presenter.getIsTrackingEnabled();
-
-                // cancel tracking runnables when tracking is toggled off
-                if (isTracking)
-                    presenter.killTrackingMode();
-
-                // update tracking state then save tracking state
-                presenter.setTrackingState(!isTracking);
-                toggleTrackingIcon(!isTracking);
-                presenter.saveTrackingState(!isTracking);
+                presenter.toggleTrackingModeEvent();
             }
         });
     }
@@ -193,15 +173,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getTitle().equals(getResources().getString(R.string.menu_item_satellite_toggle_title))) {
-            int mapType;
-
-            // If isSatellite - swap to normal and update maptype
-            if (presenter.getIsSatellite())
-                mapType = GoogleMap.MAP_TYPE_NORMAL;
-            else
-                mapType = GoogleMap.MAP_TYPE_SATELLITE;
-
-            presenter.setMapType(mapType);
+            presenter.toggleMapType();
         }
         return true;
     }
@@ -264,7 +236,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         showErrorDialog(getResources().getString(R.string.error_title), getResources().getString(R.string.error_tracking_state));
     }
 
-    private void showErrorDialog(String title, String message){
+    private void showErrorDialog(String title, String message) {
         new AlertDialog.Builder(this)
                 .setIcon(android.R.drawable.ic_dialog_alert)
                 .setTitle(title)
@@ -278,13 +250,11 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     public void printResults(String message) {
         clearSearchInputs();
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
-        presenter.startTimerToClearSearchBlock();
     }
 
     // Toggles fab icon to reflect tracking mode state
     @Override
     public void toggleTrackingIcon(boolean isTracking) {
-        Timber.d("WTF %s", isTracking);
         if (isTracking)
             fabTrack.setImageResource(R.drawable.ic_navigation_red_48dp);
         else
@@ -309,7 +279,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
 
     // Checks to makes location services are enabled - provides user a way to turn them on
     private void isLocationEnabled() {
-        locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
+        LocationManager locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
         boolean gps_enabled = false;
 
         try {
@@ -321,8 +291,6 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         if (!gps_enabled) {
             alertUserEnabledLocationServices();
         }
-
-        locationManager = null;
     }
 
     // Alert dialog that offers user option to enable location services
