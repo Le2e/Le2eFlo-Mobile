@@ -7,11 +7,11 @@ import com.le2e.le2etruckstop.ui.home.interfaces.TrackingImpl;
 
 import timber.log.Timber;
 
-public class TrackingModeManager {
+class TrackingModeManager {
     private TrackingImpl presenter;
     private Handler userInteractionHandler;
 
-    public TrackingModeManager(TrackingImpl presenter) {
+    TrackingModeManager(TrackingImpl presenter) {
         userInteractionHandler = new Handler();
         this.presenter = presenter;
     }

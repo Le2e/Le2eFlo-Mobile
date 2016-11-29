@@ -7,16 +7,16 @@ import com.le2e.le2etruckstop.ui.home.interfaces.StationRequestImpl;
 
 import timber.log.Timber;
 
-public class StationRequestManager {
-    private StationRequestImpl presnterImpl;
+class StationRequestManager {
+    private StationRequestImpl presenterImpl;
     private Handler delayedRequestHandler;
     private String runRad;
     private double runLat;
     private double runLng;
     private boolean saveMarkers;
 
-    public StationRequestManager(StationRequestImpl presnterImpl) {
-        this.presnterImpl = presnterImpl;
+    StationRequestManager(StationRequestImpl presenterImpl) {
+        this.presenterImpl = presenterImpl;
         delayedRequestHandler = new Handler();
     }
 
@@ -24,11 +24,11 @@ public class StationRequestManager {
         @Override
         public void run() {
             Timber.d("api request runnable go!");
-            presnterImpl.getStationsByLoc(runRad, runLat, runLng);
+            presenterImpl.getStationsByLoc(runRad, runLat, runLng);
         }
     };
 
-    public void manageStationRequestRunnable(int delay, String radius, double lat, double lng, boolean save) {
+    void manageStationRequestRunnable(int delay, String radius, double lat, double lng, boolean save) {
         Timber.d("api request runnable started! w/ delay: %s", delay);
         delayedRequestHandler.removeCallbacks(stationRequestRunnable);
         saveMarkers = save;
@@ -38,11 +38,11 @@ public class StationRequestManager {
         delayedRequestHandler.postDelayed(stationRequestRunnable, delay);
     }
 
-    public void stopRequestRunnable() {
+    void stopRequestRunnable() {
         delayedRequestHandler.removeCallbacks(stationRequestRunnable);
     }
 
-    public boolean isSaveMarkers() {
+    boolean isSaveMarkers() {
         return saveMarkers;
     }
 }

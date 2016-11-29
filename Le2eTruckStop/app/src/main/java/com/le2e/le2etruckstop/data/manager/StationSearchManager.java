@@ -5,6 +5,7 @@ import android.os.Handler;
 
 import com.google.android.gms.maps.model.Marker;
 import com.le2e.le2etruckstop.data.remote.response.TruckStop;
+import com.le2e.le2etruckstop.ui.home.interfaces.MapManagerImpl;
 import com.le2e.le2etruckstop.ui.home.interfaces.SearchImpl;
 
 import java.util.ArrayList;
@@ -14,13 +15,13 @@ import java.util.regex.Pattern;
 
 import timber.log.Timber;
 
-public class StationSearchManager {
+class StationSearchManager {
     private SearchImpl presenterImpl;
     private ArrayList<TruckStop> matchingList;
-    private HashMap<Marker, TruckStop> stops;
+    private HashMap<Marker, TruckStop> stopsMap;
     private Handler searchBlockHandler;
 
-    public StationSearchManager(SearchImpl presenterImpl) {
+    StationSearchManager(SearchImpl presenterImpl) {
         this.presenterImpl = presenterImpl;
         matchingList = new ArrayList<>();
         searchBlockHandler = new Handler();
@@ -34,18 +35,18 @@ public class StationSearchManager {
         }
     };
 
-    public void manageSearchBlockRunnable(int delay) {
+    void manageSearchBlockRunnable(int delay) {
         searchBlockHandler.removeCallbacks(turnSearchOffRunnable);
         searchBlockHandler.postDelayed(turnSearchOffRunnable, delay);
     }
 
-    public void clearResults() {
+    void clearResults() {
         matchingList.clear();
     }
 
     // determine which params are part of search query
-    public void determineSearchParams(String name, String city, String state, String zip) {
-        stops = presenterImpl.getMarkerMap();
+    void determineSearchParams(String name, String city, String state, String zip, HashMap<Marker, TruckStop> stops) {
+        stopsMap = stops;
 
         if (!stops.isEmpty()) {
 
@@ -79,7 +80,7 @@ public class StationSearchManager {
     }
 
     private void findMatches(int digit, String name, String city, String state, String zip) {
-        for (Map.Entry<Marker, TruckStop> entry : stops.entrySet()) {
+        for (Map.Entry<Marker, TruckStop> entry : stopsMap.entrySet()) {
             switch (digit) {
                 case 0: // do nothing - they asked for literally nothing
                     break;
