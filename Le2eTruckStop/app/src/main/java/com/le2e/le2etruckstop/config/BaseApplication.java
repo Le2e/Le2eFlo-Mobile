@@ -5,8 +5,8 @@ import android.app.Application;
 import android.content.Context;
 
 import com.le2e.le2etruckstop.BuildConfig;
-import com.le2e.le2etruckstop.injection.component.DaggerPresenterComponent;
-import com.le2e.le2etruckstop.injection.component.PresenterComponent;
+import com.le2e.le2etruckstop.injection.component.AppComponent;
+import com.le2e.le2etruckstop.injection.component.DaggerAppComponent;
 import com.le2e.le2etruckstop.injection.module.DataModule;
 import com.le2e.le2etruckstop.injection.module.NetworkModule;
 import com.le2e.le2etruckstop.injection.module.StationServiceModule;
@@ -15,7 +15,7 @@ import timber.log.Timber;
 
 public class BaseApplication extends Application {
     private static Context context;
-    private PresenterComponent presenterComponent;
+    private AppComponent appComponent;
 
     public static BaseApplication get() {
         return (BaseApplication) context.getApplicationContext();
@@ -31,14 +31,14 @@ public class BaseApplication extends Application {
             Timber.plant(new Timber.DebugTree());
         }
 
-        presenterComponent = DaggerPresenterComponent.builder()
-                .dataModule(new DataModule())
+        appComponent = DaggerAppComponent.builder()
+                .dataModule(new DataModule(this))
                 .stationServiceModule(new StationServiceModule())
                 .networkModule(new NetworkModule())
                 .build();
     }
 
-    public PresenterComponent getPresenterComponent() {
-        return presenterComponent;
+    public AppComponent getAppComponent() {
+        return appComponent;
     }
 }

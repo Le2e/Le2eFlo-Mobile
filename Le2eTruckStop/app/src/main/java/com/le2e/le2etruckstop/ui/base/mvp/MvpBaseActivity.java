@@ -7,8 +7,6 @@ import android.support.v7.app.AppCompatActivity;
 import com.le2e.le2etruckstop.ui.base.mvp.core.MvpPresenter;
 import com.le2e.le2etruckstop.ui.base.mvp.core.MvpView;
 
-import timber.log.Timber;
-
 
 public abstract class MvpBaseActivity<V extends MvpView, P extends MvpPresenter<V>>
         extends AppCompatActivity implements MvpView {
@@ -42,7 +40,6 @@ public abstract class MvpBaseActivity<V extends MvpView, P extends MvpPresenter<
 
     @Override
     public void onDestroy() {
-        Timber.d("Simpsons did it");
         presenter.detachView();
         super.onDestroy();
     }

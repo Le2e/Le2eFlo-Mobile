@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:background="#111166"
+    android:orientation="vertical">
+
+    <EditText
+        android:id="@+id/search_name_et"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="5dp"
+        android:background="#123456"
+        android:padding="4dp"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#999999"
+        android:hint="@string/et_search_name"
+        android:singleLine="true"/>
+
+    <EditText
+        android:id="@+id/search_city_et"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="5dp"
+        android:background="#123456"
+        android:padding="4dp"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#999999"
+        android:hint="@string/et_search_city"
+        android:singleLine="true"/>
+
+    <EditText
+        android:id="@+id/search_state_et"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="5dp"
+        android:background="#123456"
+        android:padding="4dp"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#999999"
+        android:hint="@string/et_search_state"
+        android:singleLine="true"/>
+
+    <EditText
+        android:id="@+id/search_zip_et"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="5dp"
+        android:background="#123456"
+        android:padding="4dp"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#999999"
+        android:inputType="number"
+        android:hint="@string/et_search_zip"
+        android:singleLine="true"/>
+
+    <Button
+        android:id="@+id/search_btn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="5dp"
+        android:layout_gravity="center_horizontal"
+        android:text="@string/btn_search_text"/>
+
+    <RelativeLayout
+        android:id="@+id/dragView"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:background="@color/colorPrimary">
+
+        <ImageView
+            tools:ignore="ContentDescription"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:src="@drawable/ic_search_white_36dp" />
+
+    </RelativeLayout>
+
+</LinearLayout>
