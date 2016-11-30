@@ -1,13 +1,18 @@
 package com.le2e.le2etruckstop.data.manager;
 
-
 import android.Manifest;
 import android.app.Activity;
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Build;
+import android.provider.Settings;
+import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
 
+import android.support.v7.app.AlertDialog;
+import android.view.View;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
@@ -38,30 +43,27 @@ import java.util.HashSet;
 
 import timber.log.Timber;
 
-public class StationMapManager implements LocationListener, GoogleMap.OnCameraIdleListener, GoogleMap.OnMarkerClickListener,
-        SearchImpl, TrackingImpl, StationRequestImpl, PopupInfoImpl {
-    @SuppressWarnings("FieldCanBeLocal")
-    private final int SEARCH_BLOCK_DELAY = 30000;
-    @SuppressWarnings("FieldCanBeLocal")
-    private final int API_REQUEST_DELAY = 500;
-    @SuppressWarnings("FieldCanBeLocal")
-    private final int DIALOG_DELAY = 15000;
+public class StationMapManager
+    implements LocationListener, GoogleMap.OnCameraIdleListener, GoogleMap.OnMarkerClickListener,
+    SearchImpl, TrackingImpl, StationRequestImpl, PopupInfoImpl {
+    @SuppressWarnings("FieldCanBeLocal") private final int SEARCH_BLOCK_DELAY = 30000;
+    @SuppressWarnings("FieldCanBeLocal") private final int API_REQUEST_DELAY = 500;
+    @SuppressWarnings("FieldCanBeLocal") private final int DIALOG_DELAY = 15000;
+
+    public static final int REQUEST_PERMISSIONS = 20;
 
     private HashMap<Marker, TruckStop> markersMap;
     private HashSet<TruckStop> stationSet;
     private MapManagerImpl mapManagerPresenter;
 
     private GoogleMap googleMap;
-    @SuppressWarnings("FieldCanBeLocal")
-    private GoogleApiClient googleApiClient;
-    @SuppressWarnings("FieldCanBeLocal")
-    private LocationRequest locationRequest;
+    @SuppressWarnings("FieldCanBeLocal") private GoogleApiClient googleApiClient;
+    @SuppressWarnings("FieldCanBeLocal") private LocationRequest locationRequest;
     private TruckStopPopupAdapter popupAdapter;
     private Marker currentLocMarker;
     private LatLng currentLoc;
 
-    @SuppressWarnings("FieldCanBeLocal")
-    private float zoomLevel = 7.0f;
+    @SuppressWarnings("FieldCanBeLocal") private float zoomLevel = 7.0f;
     private boolean isMapFirstLoad = false;
     private boolean isTrackingEnabled = false;
     private boolean isTrackingSuspended = false;
@@ -72,7 +74,6 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
     private StationSearchManager searchManager;
     private StationRequestManager requestManager;
     private TrackingModeManager trackingManager;
-
 
     public StationMapManager(MapManagerImpl mapManagerPresenter) {
         this.mapManagerPresenter = mapManagerPresenter;
@@ -86,34 +87,58 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
     }
 
     // Sets up location services
-    public void setupLocationServices(GoogleApiClient client, GoogleMap googleMap, WeakReference<Activity> activityRef) {
+    public void setupLocationServices(GoogleApiClient client, GoogleMap googleMap,
+        final WeakReference<Activity> activityRef) {
         this.googleApiClient = client;
         this.googleMap = googleMap;
         popupAdapter = new TruckStopPopupAdapter(activityRef, this);
-        setupGoogleMap();
 
         if (activityRef.get() != null) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 if (ActivityCompat.checkSelfPermission(activityRef.get(),
-                        Manifest.permission.ACCESS_FINE_LOCATION)
-                        != PackageManager.PERMISSION_GRANTED
-                        && ActivityCompat.checkSelfPermission(activityRef.get(),
-                        Manifest.permission.ACCESS_COARSE_LOCATION)
-                        != PackageManager.PERMISSION_GRANTED) {
+                    Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+                    && ActivityCompat.checkSelfPermission(activityRef.get(),
+                    Manifest.permission.ACCESS_COARSE_LOCATION)
+                    != PackageManager.PERMISSION_GRANTED) {
 
-                    return;
+                    Timber.d("PERMS - M - permissions not available");
+
+                    Snackbar.make(activityRef.get().findViewById(R.id.overall),
+                        "Please Grant Permissions",
+                        Snackbar.LENGTH_INDEFINITE).setAction("ENABLE",
+                        new View.OnClickListener() {
+                            @Override
+                            public void onClick(View v) {
+                                Timber.d("PERMS - SNACKS!");
+                                ActivityCompat.requestPermissions(activityRef.get(),
+                                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_PERMISSIONS);
+                            }
+                        }).show();
+
+                    Timber.d("PERMS - Permissions not granted");
+                } else {
+                    Timber.d("PERMS - Marsh - granted!");
+                    doStuff();
                 }
+            } else {
+                doStuff();
             }
-
-            locationRequest = LocationRequest.create();
-            locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-            locationRequest.setInterval(5000);
-            locationRequest.setFastestInterval(5000);
-
-            isMapFirstLoad = true;
-
-            LocationServices.FusedLocationApi.requestLocationUpdates(googleApiClient, locationRequest, this);
+        } else {
+            Timber.d("PERMS - activity null");
         }
+    }
+
+    public void doStuff() {
+        Timber.d("PERMS - doing stuff - setting up the map!");
+        setupGoogleMap();
+        locationRequest = LocationRequest.create();
+        locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        locationRequest.setInterval(5000);
+        locationRequest.setFastestInterval(5000);
+
+        isMapFirstLoad = true;
+
+        LocationServices.FusedLocationApi.requestLocationUpdates(googleApiClient, locationRequest, this);
     }
 
     // Sets up map listeners
@@ -182,12 +207,8 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
                     // Limiting marker placement by 100 mile for the time being - cluster
                     //      and other optimizations can be made in the future to allow
                     //      a wider view.
-                    requestManager.manageStationRequestRunnable(
-                            API_REQUEST_DELAY,
-                            "100",
-                            bounds.getCenter().latitude,
-                            bounds.getCenter().longitude,
-                            saveMarkers);
+                    requestManager.manageStationRequestRunnable(API_REQUEST_DELAY, "100",
+                        bounds.getCenter().latitude, bounds.getCenter().longitude, saveMarkers);
                 }
             }
         }
@@ -234,8 +255,7 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
     private void updateCurrentLocationMarker(boolean moveCamera) {
         // set current location marker
         if (currentLocMarker != null) {
-            if (!currentLocMarker.isInfoWindowShown())
-                currentLocMarker.remove();
+            if (!currentLocMarker.isInfoWindowShown()) currentLocMarker.remove();
         }
 
         setCurrentLocationMarker(currentLoc);
@@ -246,10 +266,9 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
 
     // Sets the current location marker for user's location
     private void setCurrentLocationMarker(LatLng loc) {
-        MarkerOptions options = new MarkerOptions()
-                .title("You")
-                .icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_truck_blue_36dp))
-                .position(loc);
+        MarkerOptions options = new MarkerOptions().title("You")
+            .icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_truck_blue_36dp))
+            .position(loc);
 
         currentLocMarker = googleMap.addMarker(options);
     }
@@ -287,8 +306,7 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
     private void turnTrackingOn() {
         Timber.d("tracking unsuspended");
 
-        if (isSearching)
-            Timber.d("search block cleared");
+        if (isSearching) Timber.d("search block cleared");
 
         isTrackingSuspended = false;
         setIsSearching(false);
@@ -299,7 +317,6 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
         isTrackingEnabled = isTracking;
     }
 
-
     // Sets the searching state to passed param
     private void setIsSearching(boolean isSearching) {
         this.isSearching = isSearching;
@@ -309,9 +326,8 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
 
     // ****************************** STATION RESPONSE METHODS ******************************
 
-    public void handleStationResponse(StationsResponse stationsResponse){
-        if(!requestManager.isSaveMarkers())
-            clearMapMarkers();
+    public void handleStationResponse(StationsResponse stationsResponse) {
+        if (!requestManager.isSaveMarkers()) clearMapMarkers();
 
         Timber.d("Adding new markers to map");
 
@@ -325,14 +341,12 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
     // Sets the map type
     public void setMapType(int mapType) {
         Timber.d("PERSIST - Map type returned from shared pref: %s", mapType);
-        if (mapType == GoogleMap.MAP_TYPE_NORMAL)
+        if (mapType == GoogleMap.MAP_TYPE_NORMAL) {
             isSatellite = false;
-        else if (mapType == GoogleMap.MAP_TYPE_SATELLITE)
-            isSatellite = true;
+        } else if (mapType == GoogleMap.MAP_TYPE_SATELLITE) isSatellite = true;
 
         Timber.d("PERSIST - Map type set to: %s", mapType);
-        if (googleMap != null)
-            googleMap.setMapType(mapType);
+        if (googleMap != null) googleMap.setMapType(mapType);
 
         saveMapType(mapType);
     }
@@ -340,10 +354,11 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
     // toggles satellite map type on and off with user interaction
     public void toggleMapType() {
         int mapType;
-        if (isSatellite)
+        if (isSatellite) {
             mapType = GoogleMap.MAP_TYPE_NORMAL;
-        else
+        } else {
             mapType = GoogleMap.MAP_TYPE_SATELLITE;
+        }
 
         setMapType(mapType);
     }
@@ -360,8 +375,7 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
     public void toggleTrackingMode() {
         // check is tracking
         // - if tracking, kill tracking runnable
-        if (isTrackingEnabled)
-            trackingManager.stopTrackingMode();
+        if (isTrackingEnabled) trackingManager.stopTrackingMode();
 
         // set new tracking mode
         isTrackingEnabled = !isTrackingEnabled;
@@ -386,8 +400,7 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
 
         // if isTrackingEnabled
         // - set isSearching block to true - MM
-        if (isTrackingEnabled)
-            isSearching = true;
+        if (isTrackingEnabled) isSearching = true;
     }
 
     private void displaySearchResultsOnMap(ArrayList<TruckStop> results) {
@@ -403,12 +416,12 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
 
     private void startTimerToClearSearchBlock() {
         // start timer restart tracking after search block if enabled
-        if (isTrackingEnabled)
-            turnTrackingOnByDelay(SEARCH_BLOCK_DELAY);
+        if (isTrackingEnabled) turnTrackingOnByDelay(SEARCH_BLOCK_DELAY);
 
         // start timer to clear search block and restart request runnable
         searchManager.manageSearchBlockRunnable(SEARCH_BLOCK_DELAY);
-        requestManager.manageStationRequestRunnable(SEARCH_BLOCK_DELAY, "100", currentLoc.latitude, currentLoc.longitude, false);
+        requestManager.manageStationRequestRunnable(SEARCH_BLOCK_DELAY, "100", currentLoc.latitude,
+            currentLoc.longitude, false);
     }
 
     public void searchPanelSlideEvent(SlidingUpPanelLayout.PanelState state) {
@@ -425,8 +438,6 @@ public class StationMapManager implements LocationListener, GoogleMap.OnCameraId
             // start timer to clear search block - MM + SM
             startTimerToClearSearchBlock();
         }
-
-
     }
 
     // ****************************** INTERFACE IMPLEMENTATIONS ******************************

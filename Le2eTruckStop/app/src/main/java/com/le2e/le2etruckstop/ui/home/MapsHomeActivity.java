@@ -6,6 +6,7 @@ import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -31,6 +32,7 @@ import com.google.android.gms.maps.OnMapReadyCallback;
 import com.le2e.le2etruckstop.R;
 import com.le2e.le2etruckstop.config.BaseApplication;
 import com.le2e.le2etruckstop.data.manager.DataManager;
+import com.le2e.le2etruckstop.data.manager.StationMapManager;
 import com.le2e.le2etruckstop.ui.base.mvp.MvpBaseActivity;
 import com.sothree.slidinguppanel.SlidingUpPanelLayout;
 
@@ -81,6 +83,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         super.onCreate(bundle);
 
         if (googleServicesAvailable()) {
+            Timber.d("PERMS - onCreate - services avail");
             setContentView(R.layout.activity_maps_home);
             ButterKnife.bind(this);
             setupFabs();
@@ -181,25 +184,27 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     // GoogleApiClient connect success - starts mapManager initialization
     @Override
     public void onConnected(@Nullable Bundle bundle) {
+        Timber.d("PERMS - google play connected");
         presenter.initLocationServices(googleApiClient, mMap, new WeakReference<Activity>(this));
     }
 
     // Fires when googleApiClient connection is suspended
     @Override
     public void onConnectionSuspended(int i) {
-        Timber.w("Google APIs connection suspended.");
+        Timber.w("PERMS - Google APIs connection suspended.");
     }
 
     // Fires when googleApiclient failes to connect
     @Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-        Timber.e("Google APIs connection failed with code: %d", connectionResult.getErrorCode());
+        Timber.e("PERMS - Google APIs connection failed with code: %d", connectionResult.getErrorCode());
     }
 
     // Sets up the map fragment view
     private void initMap() {
         MapFragment mapFragment = (MapFragment) getFragmentManager().findFragmentById(R.id.map_fragment);
         mapFragment.getMapAsync(this);
+        Timber.d("PERMS - Map init");
     }
 
     // Called when async setup in initMap() finishes
@@ -207,6 +212,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     // - connects googleApiClient
     @Override
     public void onMapReady(GoogleMap googleMap) {
+        Timber.d("PERMS - map ready!");
         if (googleMap != null) {
             mMap = googleMap;
 
@@ -266,6 +272,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         GoogleApiAvailability apiAvailability = GoogleApiAvailability.getInstance();
         int isAvailable = apiAvailability.isGooglePlayServicesAvailable(this);
         if (isAvailable == ConnectionResult.SUCCESS) {
+            Timber.d("PERMS - connected google services");
             return true;
         } else if (apiAvailability.isUserResolvableError(isAvailable)) {
             Dialog dialog = apiAvailability.getErrorDialog(this, isAvailable, 0);
@@ -284,12 +291,14 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
 
         try {
             gps_enabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
+            Timber.d("PERMS - isLocationEnabled true");
         } catch (Exception e) {
             Timber.e(e, "Request to check gps capability failed");
         }
 
         if (!gps_enabled) {
             alertUserEnabledLocationServices();
+            Timber.d("PERMS - isLocationEnabled false");
         }
     }
 
@@ -325,4 +334,16 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
         }
     }
 
+    @Override
+    public void onRequestPermissionsResult(final int requestCode,
+        @NonNull final String[] permissions, @NonNull final int[] grantResults) {
+        Timber.d("PERMS - RESULT YO!");
+        switch (requestCode){
+            case StationMapManager.REQUEST_PERMISSIONS:
+                Timber.d("PERMS - REQUEST PERMS GOOG");
+                if(grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED)
+                    presenter.initLocationServices(googleApiClient, mMap, new WeakReference<Activity>(this));
+                break;
+        }
+    }
 }

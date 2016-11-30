@@ -204,5 +204,7 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements MapMan
         mapManager.searchPanelSlideEvent(newState);
     }
 
-
+    void doStuff(){
+        mapManager.doStuff();
+    }
 }
