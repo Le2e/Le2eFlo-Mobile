@@ -45,7 +45,7 @@ import timber.log.Timber;
 
 public class StationMapManager
     implements LocationListener, GoogleMap.OnCameraIdleListener, GoogleMap.OnMarkerClickListener,
-    SearchImpl, TrackingImpl, StationRequestImpl, PopupInfoImpl {
+    SearchImpl, TrackingImpl, StationRequestImpl, PopupInfoImpl, GoogleMap.OnMapClickListener {
     @SuppressWarnings("FieldCanBeLocal") private final int SEARCH_BLOCK_DELAY = 30000;
     @SuppressWarnings("FieldCanBeLocal") private final int API_REQUEST_DELAY = 500;
     @SuppressWarnings("FieldCanBeLocal") private final int DIALOG_DELAY = 15000;
@@ -62,6 +62,7 @@ public class StationMapManager
     private TruckStopPopupAdapter popupAdapter;
     private Marker currentLocMarker;
     private LatLng currentLoc;
+    private Marker lastClickedMarker;
 
     @SuppressWarnings("FieldCanBeLocal") private float zoomLevel = 7.0f;
     private boolean isMapFirstLoad = false;
@@ -148,6 +149,7 @@ public class StationMapManager
         googleMap.setInfoWindowAdapter(popupAdapter);
         googleMap.setOnCameraIdleListener(this);
         googleMap.setOnMarkerClickListener(this);
+        googleMap.setOnMapClickListener(this);
     }
 
     // Receives location as user moves
@@ -220,6 +222,9 @@ public class StationMapManager
     // Shows marker info window
     @Override
     public boolean onMarkerClick(Marker marker) {
+        lastClickedMarker = marker;
+        lastClickedMarker.setIcon(BitmapDescriptorFactory.fromResource(R.drawable.ic_store_yellow_36dp));
+
         // Delay tracking mode restart by specific amount
         if (isTrackingEnabled) {
             Timber.d("delayed by clicking dialog");
@@ -229,6 +234,17 @@ public class StationMapManager
         // set popup blocker to prevent post pop camera movement / api calls
         infoPop = true;
         return false;
+    }
+
+    @Override
+    public void onMapClick(final LatLng latLng) {
+        if(lastClickedMarker != null){
+            if (!lastClickedMarker.isInfoWindowShown()){
+                lastClickedMarker.setIcon(BitmapDescriptorFactory.fromResource(R.drawable.ic_store_red_36dp));
+            }
+        }
+
+        Timber.d("EEEEEE - click!");
     }
 
     // Clears out set data for marker/truck stop details

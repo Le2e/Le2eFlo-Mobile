@@ -1,6 +1,7 @@
 package com.le2e.le2etruckstop;
 
 import android.app.Application;
+import android.app.Instrumentation;
 import com.le2e.le2etruckstop.injection.component.AppComponent;
 import com.le2e.le2etruckstop.injection.component.DaggerAppComponent;
 import com.le2e.le2etruckstop.injection.module.DataModule;
@@ -24,8 +25,6 @@ import static org.junit.Assert.assertTrue;
  * @see <a href="http://d.android.com/tools/testing">Testing documentation</a>
  */
 
-@RunWith(RobolectricGradleTestRunner.class)
-@Config(constants = BuildConfig.class, sdk = 23, manifest = Config.NONE)
 public class ExampleUnitTest {
     AppComponent appComponent;
     Application mApplication;
@@ -34,7 +33,7 @@ public class ExampleUnitTest {
 
     @Before
     public void setup() {
-        mApplication = RuntimeEnvironment.application;
+
         appComponent = DaggerAppComponent.builder()
             .dataModule(new DataModule(mApplication))
             .stationServiceModule(new StationServiceModule())
