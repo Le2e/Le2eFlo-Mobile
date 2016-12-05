@@ -222,6 +222,11 @@ public class StationMapManager
     // Shows marker info window
     @Override
     public boolean onMarkerClick(Marker marker) {
+        if (lastClickedMarker != null){
+            if (!lastClickedMarker.isInfoWindowShown()){
+                lastClickedMarker.setIcon(BitmapDescriptorFactory.fromResource(R.drawable.ic_store_red_36dp));
+            }
+        }
         lastClickedMarker = marker;
         lastClickedMarker.setIcon(BitmapDescriptorFactory.fromResource(R.drawable.ic_store_yellow_36dp));
 
@@ -343,6 +348,7 @@ public class StationMapManager
     // ****************************** STATION RESPONSE METHODS ******************************
 
     public void handleStationResponse(StationsResponse stationsResponse) {
+        lastClickedMarker = null;
         if (!requestManager.isSaveMarkers()) clearMapMarkers();
 
         Timber.d("Adding new markers to map");
