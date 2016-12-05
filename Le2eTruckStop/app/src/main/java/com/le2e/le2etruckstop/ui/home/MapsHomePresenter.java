@@ -20,7 +20,7 @@ import rx.android.schedulers.AndroidSchedulers;
 import rx.schedulers.Schedulers;
 import timber.log.Timber;
 
-class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements MapManagerImpl {
+public class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements MapManagerImpl {
     private DataManager dataManager;
     private StationMapManager mapManager;
 
@@ -28,7 +28,7 @@ class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements MapMan
     private Subscription mapTypeSub;
     private Subscription trackingStateSub;
 
-    MapsHomePresenter(DataManager dataManager) {
+    public MapsHomePresenter(DataManager dataManager) {
         this.dataManager = dataManager;
         mapManager = new StationMapManager(this);
     }
