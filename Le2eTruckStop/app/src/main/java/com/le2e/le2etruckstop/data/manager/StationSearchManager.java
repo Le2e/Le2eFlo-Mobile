@@ -45,7 +45,7 @@ class StationSearchManager {
     }
 
     // determine which params are part of search query
-    void determineSearchParams(String name, String city, String state, String zip, HashMap<Marker, TruckStop> stops) {
+    public void determineSearchParams(String name, String city, String state, String zip, HashMap<Marker, TruckStop> stops) {
         stopsMap = stops;
 
         if (!stops.isEmpty()) {

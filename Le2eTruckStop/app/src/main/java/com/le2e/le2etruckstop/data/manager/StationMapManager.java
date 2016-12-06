@@ -248,8 +248,6 @@ public class StationMapManager
                 lastClickedMarker.setIcon(BitmapDescriptorFactory.fromResource(R.drawable.ic_store_red_36dp));
             }
         }
-
-        Timber.d("EEEEEE - click!");
     }
 
     // Clears out set data for marker/truck stop details

@@ -201,7 +201,7 @@ public class MapsHomeActivity extends MvpBaseActivity<MapsHomeView, MapsHomePres
     }
 
     // Sets up the map fragment view
-    private void initMap() {
+    public void initMap() {
         MapFragment mapFragment = (MapFragment) getFragmentManager().findFragmentById(R.id.map_fragment);
         mapFragment.getMapAsync(this);
         Timber.d("PERMS - Map init");

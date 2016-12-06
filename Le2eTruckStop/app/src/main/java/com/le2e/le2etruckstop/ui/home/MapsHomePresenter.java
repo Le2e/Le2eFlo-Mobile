@@ -50,7 +50,7 @@ public class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements
     // ************************* MAP MANAGER METHODS *************************
 
     // Setup mapManager with needed dependencies
-    void initLocationServices(GoogleApiClient client, GoogleMap map, WeakReference<Activity> weakRef) {
+    public void initLocationServices(GoogleApiClient client, GoogleMap map, WeakReference<Activity> weakRef) {
         mapManager.setupLocationServices(client, map, weakRef);
     }
 
@@ -183,7 +183,7 @@ public class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements
     // *********************************** SEARCH EVENTS ***********************************
 
     // Launches search logic in searchManager
-    void performSearch(String name, String city, String state, String zip) {
+    public void performSearch(String name, String city, String state, String zip) {
         mapManager.searchKnownTruckStops(name, city, state, zip);
     }
 
@@ -202,9 +202,5 @@ public class MapsHomePresenter extends MvpBasePresenter<MapsHomeView> implements
 
     void searchPanelSlideEvent(SlidingUpPanelLayout.PanelState newState) {
         mapManager.searchPanelSlideEvent(newState);
-    }
-
-    void doStuff(){
-        mapManager.doStuff();
     }
 }

@@ -1,0 +1,40 @@
+{
+  "truckStops": [
+    {
+      "name": "Pilot Travelcenters - store 237",
+      "city": "Salinas",
+      "state": "CA",
+      "country": "",
+      "zip": "",
+      "lat": "36.665115",
+      "lng": "-121.636536",
+      "rawLine1": "951 Work Street",
+      "rawLine2": "US 101 & Sanborn",
+      "rawLine3": ""
+    },
+    {
+      "name": "Love's Travel Stops - store 223",
+      "city": "Ripon",
+      "state": "CA",
+      "country": "",
+      "zip": "",
+      "lat": "37.755192",
+      "lng": "-121.14151",
+      "rawLine1": "State Hwy 99 &Jack Tone Rd",
+      "rawLine2": "Hwy 99 Exit252",
+      "rawLine3": ""
+    },
+    {
+      "name": "Love's Travel Stops - store 441",
+      "city": "Santa Nella",
+      "state": "CA",
+      "country": "",
+      "zip": "95322",
+      "lat": "37.112167",
+      "lng": "-121.017982",
+      "rawLine1": "29025 West Plaza Drive",
+      "rawLine2": "I-5 & State Hwy 139",
+      "rawLine3": "8652028704"
+    }
+  ]
+}
